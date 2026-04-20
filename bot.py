@@ -19,9 +19,9 @@ LOG_CHANNEL_ID      = 0
 WELCOME_CHANNEL_ID  = 0
 BIRTHDAY_CHANNEL_ID = 0
 VENT_CHANNEL_IDS    = []
-ACTIVE_CHANNELS     = []
+ACTIVE_CHANNELS     = []  
  
-AUTO_BAN_THRESHOLD  = 5  # 0 = disabled
+AUTO_BAN_THRESHOLD  = 5  
  
 # ─────────────────────────────────────────────
 # MOD RULES
@@ -648,7 +648,7 @@ async def on_message(message: discord.Message):
             timestamp=datetime.datetime.utcnow()
         )
         await message.channel.send(embed=alert_embed, delete_after=30)
-        if LOG_CHANNEL_ID:
+        if LOG_CHANNEL_ID and LOG_SETTINGS.get("compromised"):
             log_embed = mod_log_embed("Compromised Account Detected", bot.user, message.author, "Matched hack/scam pattern", discord.Color.dark_red())
             log_embed.add_field(name="Flagged Message", value=message.content[:512], inline=False)
             await send_log(message.guild, log_embed)
@@ -740,7 +740,7 @@ async def on_message_edit(before: discord.Message, after: discord.Message):
  
 @bot.event
 async def on_member_ban(guild: discord.Guild, user: discord.User):
-    if not LOG_CHANNEL_ID:
+    if not LOG_CHANNEL_ID or not LOG_SETTINGS.get("member_ban"):
         return
     embed = discord.Embed(title="Member Banned", color=discord.Color.dark_red(), timestamp=datetime.datetime.utcnow())
     embed.add_field(name="User", value=f"{user} (ID: {user.id})")
@@ -749,7 +749,7 @@ async def on_member_ban(guild: discord.Guild, user: discord.User):
  
 @bot.event
 async def on_member_unban(guild: discord.Guild, user: discord.User):
-    if not LOG_CHANNEL_ID:
+    if not LOG_CHANNEL_ID or not LOG_SETTINGS.get("member_unban"):
         return
     embed = discord.Embed(title="Member Unbanned", color=discord.Color.green(), timestamp=datetime.datetime.utcnow())
     embed.add_field(name="User", value=f"{user} (ID: {user.id})")
@@ -760,7 +760,7 @@ async def on_member_unban(guild: discord.Guild, user: discord.User):
 async def on_member_update(before: discord.Member, after: discord.Member):
     if not LOG_CHANNEL_ID:
         return
-    if before.nick != after.nick:
+    if before.nick != after.nick and LOG_SETTINGS.get("nickname_change"):
         embed = discord.Embed(title="Nickname Changed", color=discord.Color.blurple(), timestamp=datetime.datetime.utcnow())
         embed.add_field(name="User", value=f"{after} (ID: {after.id})")
         embed.add_field(name="Before", value=before.nick or "*(none)*")
@@ -768,7 +768,7 @@ async def on_member_update(before: discord.Member, after: discord.Member):
         await send_log(after.guild, embed)
     added_roles   = [r for r in after.roles if r not in before.roles]
     removed_roles = [r for r in before.roles if r not in after.roles]
-    if added_roles or removed_roles:
+    if (added_roles or removed_roles) and LOG_SETTINGS.get("role_update"):
         embed = discord.Embed(title="Roles Updated", color=discord.Color.blurple(), timestamp=datetime.datetime.utcnow())
         embed.add_field(name="User", value=f"{after} (ID: {after.id})", inline=False)
         if added_roles:
@@ -780,7 +780,7 @@ async def on_member_update(before: discord.Member, after: discord.Member):
  
 @bot.event
 async def on_guild_channel_create(channel):
-    if not LOG_CHANNEL_ID:
+    if not LOG_CHANNEL_ID or not LOG_SETTINGS.get("channel_create"):
         return
     embed = discord.Embed(title="Channel Created", color=discord.Color.green(), timestamp=datetime.datetime.utcnow())
     embed.add_field(name="Channel", value=f"{channel.name} (ID: {channel.id})")
@@ -790,7 +790,7 @@ async def on_guild_channel_create(channel):
  
 @bot.event
 async def on_guild_channel_delete(channel):
-    if not LOG_CHANNEL_ID:
+    if not LOG_CHANNEL_ID or not LOG_SETTINGS.get("channel_delete"):
         return
     embed = discord.Embed(title="Channel Deleted", color=discord.Color.red(), timestamp=datetime.datetime.utcnow())
     embed.add_field(name="Channel", value=f"{channel.name} (ID: {channel.id})")
@@ -1376,67 +1376,112 @@ async def logsettings(interaction: discord.Interaction):
 # HELP COMMAND
 # ─────────────────────────────────────────────
  
-@bot.tree.command(name="help", description="Show all of Dei's available commands.")
-async def help_cmd(interaction: discord.Interaction):
+HELP_PAGES = [
+    {
+        "title": "⊹ Help — Conversation & Fun",
+        "fields": [
+            ("💬 Conversation", "\u200b", False),
+            ("`/ask` [question]",         "Ask Dei anything, anywhere.",           True),
+            ("`/lore`",                   "Get a random Vaelun lore fact.",         True),
+            ("`/8ball` [question]",       "Ask Dei the magic 8ball.",               True),
+            ("🌿 Wellness", "\u200b", False),
+            ("`/grounding`",              "Dei walks you through a grounding exercise for anxiety or overwhelm.", False),
+            ("🎉 Fun", "\u200b", False),
+            ("`/poll` [question]",        "Create a yes/no or multi-option poll.",  True),
+            ("`/birthday` [month] [day]", "Register your birthday.",                True),
+            ("`/remindme` [min] [text]",  "Set a personal DM reminder.",            True),
+            ("ℹ️ Info", "\u200b", False),
+            ("`/userinfo` [@user]",       "View info about a user.",                True),
+            ("`/serverinfo`",             "View info about this server.",           True),
+        ],
+    },
+    {
+        "title": "⊹ Help — Moderation",
+        "fields": [
+            ("🔒 Moderation", "These require Moderator permissions.", False),
+            ("`/warn` [@user] [reason]",     "Warn a member.",                      True),
+            ("`/warnings` [@user]",          "View a member's warnings.",           True),
+            ("`/clearwarnings` [@user]",     "Clear a member's warnings.",          True),
+            ("`/timeout` [@user] [minutes]", "Timeout a member.",                   True),
+            ("`/kick` [@user] [reason]",     "Kick a member.",                      True),
+            ("`/ban` [@user] [reason]",      "Ban a member.",                       True),
+            ("`/unban` [user_id]",           "Unban a user by ID.",                 True),
+            ("`/clear` [amount]",            "Bulk delete messages (max 100).",     True),
+            ("`/slowmode` [seconds]",        "Set channel slowmode.",               True),
+            ("`/addrole` [@user] [role]",    "Add a role to a member.",             True),
+            ("`/removerole` [@user] [role]", "Remove a role from a member.",        True),
+            ("`/dm` [@user] [message]",      "DM a member as the bot.",             True),
+            ("`/report` [reason]",           "Anonymously report to mods.",         True),
+        ],
+    },
+    {
+        "title": "⊹ Help — Announcements, Roles & Admin",
+        "fields": [
+            ("📢 Announcements", "\u200b", False),
+            ("`/embed` [title] [desc]",      "Post a custom embed.",                True),
+            ("`/announce` [title] [msg]",    "Post a styled announcement.",         True),
+            ("`/rules`",                     "Post the server rules embed.",        True),
+            ("🎭 Reaction Roles", "\u200b", False),
+            ("`/reactionrole` [msg] [emoji] [role]", "Link an emoji to a role.",   True),
+            ("`/reactionrolelist`",          "View all active reaction roles.",     True),
+            ("🔒 Admin Config", "These require Administrator permissions.", False),
+            ("`/setlog` [#channel]",         "Set the mod log channel.",            True),
+            ("`/setwelcome` [#channel]",     "Set the welcome channel.",            True),
+            ("`/setbirthday` [#channel]",    "Set the birthday channel.",           True),
+            ("`/setvent` [#channel]",        "Toggle a vent channel on/off.",       True),
+            ("`/setactive` [#channel]",      "Toggle an active channel on/off.",    True),
+            ("`/channels`",                  "View all channel settings.",          True),
+            ("`/logsettings`",               "Toggle log types with a dropdown.",   True),
+        ],
+    },
+]
+ 
+ 
+def build_help_embed(page: int) -> discord.Embed:
+    data = HELP_PAGES[page]
     embed = discord.Embed(
-        title="⊹ Dei Talvyrvei — Command List",
-        description="Here is everything I can do. Commands marked 🔒 require moderator or admin permissions.",
+        title=data["title"],
+        description=f"Page {page + 1} of {len(HELP_PAGES)} · Use the buttons to navigate.",
         color=discord.Color.blurple(),
         timestamp=discord.utils.utcnow()
     )
- 
-    embed.add_field(name="─── 💬 Conversation ───", value="\u200b", inline=False)
-    embed.add_field(name="`/ask` [question]",        value="Ask Dei anything, anywhere.", inline=True)
-    embed.add_field(name="`/lore`",                  value="Get a random Vaelun lore fact.", inline=True)
-    embed.add_field(name="`/8ball` [question]",      value="Ask Dei the magic 8ball.", inline=True)
- 
-    embed.add_field(name="─── 🌿 Wellness ───", value="\u200b", inline=False)
-    embed.add_field(name="`/grounding`",             value="Dei walks you through a grounding exercise. Great for anxiety or overwhelm.", inline=False)
- 
-    embed.add_field(name="─── 🎉 Fun ───", value="\u200b", inline=False)
-    embed.add_field(name="`/poll` [question]",       value="Create a yes/no or multi-option poll.", inline=True)
-    embed.add_field(name="`/birthday` [month] [day]",value="Register your birthday.", inline=True)
-    embed.add_field(name="`/remindme` [min] [text]", value="Set a personal DM reminder.", inline=True)
- 
-    embed.add_field(name="─── ℹ️ Info ───", value="\u200b", inline=False)
-    embed.add_field(name="`/userinfo` [@user]",      value="View info about a user.", inline=True)
-    embed.add_field(name="`/serverinfo`",            value="View info about this server.", inline=True)
- 
-    embed.add_field(name="─── 🔒 Moderation ───", value="\u200b", inline=False)
-    embed.add_field(name="`/warn` [@user] [reason]",    value="Warn a member.", inline=True)
-    embed.add_field(name="`/warnings` [@user]",         value="View a member's warnings.", inline=True)
-    embed.add_field(name="`/clearwarnings` [@user]",    value="Clear a member's warnings.", inline=True)
-    embed.add_field(name="`/timeout` [@user] [min]",    value="Timeout a member.", inline=True)
-    embed.add_field(name="`/kick` [@user] [reason]",    value="Kick a member.", inline=True)
-    embed.add_field(name="`/ban` [@user] [reason]",     value="Ban a member.", inline=True)
-    embed.add_field(name="`/unban` [user_id]",          value="Unban a user by ID.", inline=True)
-    embed.add_field(name="`/clear` [amount]",           value="Bulk delete messages (max 100).", inline=True)
-    embed.add_field(name="`/slowmode` [seconds]",       value="Set channel slowmode.", inline=True)
-    embed.add_field(name="`/addrole` [@user] [role]",   value="Add a role to a member.", inline=True)
-    embed.add_field(name="`/removerole` [@user] [role]",value="Remove a role from a member.", inline=True)
-    embed.add_field(name="`/dm` [@user] [message]",     value="DM a member as the bot.", inline=True)
-    embed.add_field(name="`/report` [reason]",          value="Anonymously report to mods.", inline=True)
- 
-    embed.add_field(name="─── 📢 Announcements ───", value="\u200b", inline=False)
-    embed.add_field(name="`/embed` [title] [desc]",     value="Post a custom embed.", inline=True)
-    embed.add_field(name="`/announce` [title] [msg]",   value="Post a styled announcement.", inline=True)
-    embed.add_field(name="`/rules`",                    value="Post the server rules embed.", inline=True)
- 
-    embed.add_field(name="─── 🎭 Roles ───", value="\u200b", inline=False)
-    embed.add_field(name="`/reactionrole` [msg_id] [emoji] [role]", value="Link an emoji to a role on a message.", inline=True)
-    embed.add_field(name="`/reactionrolelist`",         value="View all active reaction roles.", inline=True)
- 
-    embed.add_field(name="─── 🔒 Admin Config ───", value="\u200b", inline=False)
-    embed.add_field(name="`/setlog` [#channel]",        value="Set the mod log channel.", inline=True)
-    embed.add_field(name="`/setwelcome` [#channel]",    value="Set the welcome channel.", inline=True)
-    embed.add_field(name="`/setbirthday` [#channel]",   value="Set the birthday channel.", inline=True)
-    embed.add_field(name="`/setvent` [#channel]",       value="Toggle a vent channel.", inline=True)
-    embed.add_field(name="`/setactive` [#channel]",     value="Toggle an active channel.", inline=True)
-    embed.add_field(name="`/channels`",                 value="View all channel settings.", inline=True)
-    embed.add_field(name="`/logsettings`",              value="Toggle which events get logged with a dropdown menu.", inline=True)
- 
+    for name, value, inline in data["fields"]:
+        embed.add_field(name=name, value=value, inline=inline)
     embed.set_footer(text="Dei Talvyrvei · Type a message in an active channel to talk to me directly.")
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    return embed
+ 
+ 
+class HelpView(discord.ui.View):
+    def __init__(self, page: int = 0):
+        super().__init__(timeout=120)
+        self.page = page
+        self.update_buttons()
+ 
+    def update_buttons(self):
+        self.prev_btn.disabled = self.page == 0
+        self.next_btn.disabled = self.page == len(HELP_PAGES) - 1
+        self.page_label.label  = f"{self.page + 1} / {len(HELP_PAGES)}"
+ 
+    @discord.ui.button(label="←", style=discord.ButtonStyle.secondary)
+    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page -= 1
+        self.update_buttons()
+        await interaction.response.edit_message(embed=build_help_embed(self.page), view=self)
+ 
+    @discord.ui.button(label="1 / 3", style=discord.ButtonStyle.secondary, disabled=True)
+    async def page_label(self, interaction: discord.Interaction, button: discord.ui.Button):
+        pass
+ 
+    @discord.ui.button(label="→", style=discord.ButtonStyle.secondary)
+    async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page += 1
+        self.update_buttons()
+        await interaction.response.edit_message(embed=build_help_embed(self.page), view=self)
+ 
+ 
+@bot.tree.command(name="help", description="Show all of Dei's available commands.")
+async def help_cmd(interaction: discord.Interaction):
+    await interaction.response.send_message(embed=build_help_embed(0), view=HelpView(0), ephemeral=True)
  
  
 # ─────────────────────────────────────────────
@@ -1474,7 +1519,7 @@ GROUNDING_EXERCISES = [
             "Sometimes the body needs something physical to interrupt the spiral.\n\n"
             "If you can, go to a sink and run cold water over your hands or wrists.\n"
             "Feel the temperature. Focus on just that sensation.\n\n"
-            "If you cannot do that right now, hold something cold if it is nearby.\n"
+            "If you cannot do that right now — hold something cold if it is nearby.\n"
             "A cup. A window. Anything.\n\n"
             "*You do not have to think. Just feel the cold. That is enough for right now.*"
         ),
@@ -1483,7 +1528,7 @@ GROUNDING_EXERCISES = [
         "name": "Name Your Surroundings",
         "description": (
             "Look around the space you are in right now.\n\n"
-            "Pick one object. Say its name, out loud if you can, or in your head.\n"
+            "Pick one object. Say its name — out loud if you can, or in your head.\n"
             "Then pick another. And another.\n\n"
             "Keep going until you feel the noise inside get a little quieter.\n\n"
             "*This room is real. You are in it. That is something solid to stand on.*"
@@ -1494,11 +1539,11 @@ GROUNDING_EXERCISES = [
         "description": (
             "Close your eyes if you are comfortable doing that.\n\n"
             "Picture a place where you feel safe. It can be real or imagined.\n"
-            "Notice the details: what does it look like? What does it smell like?\n"
+            "Notice the details — what does it look like? What does it smell like?\n"
             "Is it warm or cool? Is it quiet or does it have sounds you love?\n\n"
             "Stay there for a moment. You can visit this place whenever you need to.\n\n"
             "*On Vaelun, I used to go to the edge of the Veil and just watch the light. "
-            "Wherever yours is, it belongs to you.*"
+            "Wherever yours is — it belongs to you.*"
         ),
     },
     {
