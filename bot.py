@@ -1,6 +1,13 @@
 from dotenv import load_dotenv
 load_dotenv()
  
+# Social alerts — import if file exists
+try:
+    from social_alerts import run_social_polls
+    SOCIAL_ENABLED = True
+except ImportError:
+    SOCIAL_ENABLED = False
+ 
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
@@ -8,9 +15,25 @@ import os
 import datetime
 import asyncio
 import random
+import httpx
  
  
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+DISCORD_TOKEN    = os.getenv("DISCORD_TOKEN")
+DASHBOARD_URL    = os.getenv("DASHBOARD_URL", "")
+DASHBOARD_SECRET = os.getenv("DASHBOARD_SECRET", "")
+GUILD_ID_ENV     = os.getenv("GUILD_ID", "")
+ 
+def _api_headers():
+    return {
+        "Authorization": f"Bearer {DASHBOARD_SECRET}",
+        "Content-Type": "application/json",
+    }
+ 
+# Per-guild response cache: {guild_id: [rules]}
+# Rules are refreshed every 5 minutes from the dashboard
+RESPONSE_CACHE: dict[int, list[dict]] = {}
+RESPONSE_CACHE_TIME: dict[int, float] = {}
+CACHE_TTL = 300  # seconds
  
 # ─────────────────────────────────────────────
 # CONFIG
@@ -19,9 +42,28 @@ LOG_CHANNEL_ID      = 0
 WELCOME_CHANNEL_ID  = 0
 BIRTHDAY_CHANNEL_ID = 0
 VENT_CHANNEL_IDS    = []
-ACTIVE_CHANNELS     = []  
+ACTIVE_CHANNELS     = []  # /setactive
  
-AUTO_BAN_THRESHOLD  = 5  
+AUTO_BAN_THRESHOLD  = 5  # 0 = disabled
+ 
+# ─────────────────────────────────────────────
+# DEI PERSONALITY CONFIG (per guild)
+# Populated via /deiconfig or the dashboard
+# ─────────────────────────────────────────────
+DEI_CONFIG: dict[int, dict] = {}
+ 
+DEFAULT_DEI_CONFIG = {
+    "name":             "Dei",
+    "full_name":        "Deivon Talvyrvei",
+    "avatar_url":       "",
+    "color":            0xc4b0f5,
+    "bio":              "An alien woman living on Earth, doing her best.",
+    "personality_notes":"",
+    "response_style":   "default",  # default | warm | distant | humorous
+}
+ 
+def get_dei_config(guild_id: int) -> dict:
+    return {**DEFAULT_DEI_CONFIG, **DEI_CONFIG.get(guild_id, {})}
  
 # ─────────────────────────────────────────────
 # MOD RULES
@@ -431,27 +473,128 @@ EIGHTBALL_RESPONSES = [
     "I checked. Twice. Still no.",
 ]
  
+async def fetch_responses(guild_id: int) -> list[dict]:
+    """Fetch response rules from dashboard, cache for CACHE_TTL seconds."""
+    import time
+    now = time.time()
+    if guild_id in RESPONSE_CACHE and now - RESPONSE_CACHE_TIME.get(guild_id, 0) < CACHE_TTL:
+        return RESPONSE_CACHE[guild_id]
+    if not DASHBOARD_URL or not DASHBOARD_SECRET:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(
+                f"{DASHBOARD_URL}/api/responses",
+                headers=_api_headers(),
+                params={"guild_id": str(guild_id)},
+            )
+            data = resp.json()
+            rules = [r for r in data.get("rules", []) if r.get("enabled", True)]
+            RESPONSE_CACHE[guild_id] = rules
+            RESPONSE_CACHE_TIME[guild_id] = now
+            return rules
+    except Exception as e:
+        print(f"[API] Failed to fetch responses: {e}")
+        return RESPONSE_CACHE.get(guild_id, [])
+ 
+ 
+async def get_dei_response_async(guild_id: int, content: str, vent: bool = False, style: str = "default") -> str:
+    """Check dashboard rules first, then fall back to hardcoded."""
+    lower = content.lower()
+    rules = await fetch_responses(guild_id)
+ 
+    # Check dashboard rules (vent-filtered)
+    for rule in rules:
+        if vent and not rule.get("is_vent", False) and rule.get("category") not in ("vent", "general", "emotions"):
+            continue
+        keywords  = rule.get("keywords", [])
+        responses = rule.get("responses", [])
+        if responses and any(kw in lower for kw in keywords):
+            response = random.choice(responses)
+            return _apply_style(response, style)
+ 
+    # Fall back to hardcoded
+    return get_dei_response(content, vent=vent, style=style)
+ 
+ 
 # ─────────────────────────────────────────────
 # RESPONSE ENGINE
 # ─────────────────────────────────────────────
  
-def get_dei_response(content: str, vent: bool = False) -> str:
+STYLE_WARM_SUFFIX = [
+    " I am glad you are here.",
+    " You are safe in this space.",
+    " I mean that.",
+    " Take your time.",
+]
+ 
+STYLE_DISTANT_PREFIX = [
+    "...",
+    "Hm.",
+    "I see.",
+    "",
+]
+ 
+STYLE_HUMOROUS_SUFFIX = [
+    " Humans are fascinating.",
+    " I have been studying your species. This tracks.",
+    " Earth continues to surprise me.",
+    " I did not expect that. I respect it.",
+]
+ 
+def _apply_style(response: str, style: str) -> str:
+    if style == "warm" and random.random() > 0.5:
+        response = response + " " + random.choice(STYLE_WARM_SUFFIX)
+    elif style == "distant":
+        prefix = random.choice(STYLE_DISTANT_PREFIX)
+        if prefix:
+            response = prefix + " " + response
+    elif style == "humorous" and random.random() > 0.5:
+        response = response + " " + random.choice(STYLE_HUMOROUS_SUFFIX)
+    return response
+ 
+ 
+def get_dei_response(content: str, vent: bool = False, style: str = "default") -> str:
     lower = content.lower()
+    response = None
  
     if vent:
         for keywords, responses in DEI_VENT_RESPONSES:
             if any(kw in lower for kw in keywords):
-                return random.choice(responses)
-        # Also check general responses in vent
-        for keywords, responses in DEI_RESPONSES:
-            if any(kw in lower for kw in keywords):
-                return random.choice(responses)
-        return random.choice(DEI_VENT_FALLBACKS)
+                response = random.choice(responses)
+                break
+        if not response:
+            for keywords, responses in DEI_RESPONSES:
+                if any(kw in lower for kw in keywords):
+                    response = random.choice(responses)
+                    break
+        if not response:
+            response = random.choice(DEI_VENT_FALLBACKS)
     else:
         for keywords, responses in DEI_RESPONSES:
             if any(kw in lower for kw in keywords):
-                return random.choice(responses)
-        return random.choice(DEI_FALLBACKS)
+                response = random.choice(responses)
+                break
+        if not response:
+            response = random.choice(DEI_FALLBACKS)
+ 
+    # Apply style modifier
+    return _apply_style(response, style)
+ 
+ 
+def dei_embed(guild_id: int, description: str = None, title: str = None) -> discord.Embed:
+    """Build an embed using the guild's Dei config."""
+    cfg = get_dei_config(guild_id)
+    embed = discord.Embed(
+        title=title,
+        description=description,
+        color=discord.Color(cfg["color"]),
+        timestamp=datetime.datetime.utcnow(),
+    )
+    if cfg["avatar_url"]:
+        embed.set_thumbnail(url=cfg["avatar_url"])
+    embed.set_footer(text=cfg["full_name"])
+    return embed
  
 # ─────────────────────────────────────────────
 # BOT SETUP
@@ -588,9 +731,34 @@ async def before_birthday_check():
 # ─────────────────────────────────────────────
  
 @bot.event
+async def on_guild_join(guild: discord.Guild):
+    """Register this guild with the dashboard when the bot joins."""
+    if not DASHBOARD_URL or not DASHBOARD_SECRET:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            await client.post(
+                f"{DASHBOARD_URL}/api/guilds/register",
+                headers=_api_headers(),
+                json={
+                    "guild_id":   str(guild.id),
+                    "guild_name": guild.name,
+                    "guild_icon": str(guild.icon) if guild.icon else "",
+                    "owner_id":   str(guild.owner_id),
+                }
+            )
+        print(f"[API] Registered guild: {guild.name}")
+    except Exception as e:
+        print(f"[API] Failed to register guild: {e}")
+ 
+ 
+@bot.event
 async def on_ready():
     await bot.tree.sync()
     birthday_check.start()
+    if SOCIAL_ENABLED:
+        bot.loop.create_task(run_social_polls(bot))
+        print("[Social] Polling task started")
     print(f"Dei Talvyrvei is online as {bot.user} (ID: {bot.user.id})")
  
  
@@ -656,9 +824,10 @@ async def on_message(message: discord.Message):
  
     # Vent channel
     if message.channel.id in VENT_CHANNEL_IDS:
+        cfg = get_dei_config(message.guild.id)
         async with message.channel.typing():
-            await asyncio.sleep(random.uniform(0.8, 2.0))  # feels more natural
-            reply = get_dei_response(message.content, vent=True)
+            await asyncio.sleep(random.uniform(0.8, 2.0))
+            reply = await get_dei_response_async(message.guild.id, message.content, vent=True, style=cfg["response_style"])
             await message.channel.send(reply)
         if check_crisis(message.content):
             await message.channel.send(embed=build_hotline_embed())
@@ -666,9 +835,10 @@ async def on_message(message: discord.Message):
  
     # Active channel
     if message.channel.id in ACTIVE_CHANNELS:
+        cfg = get_dei_config(message.guild.id)
         async with message.channel.typing():
-            await asyncio.sleep(random.uniform(0.5, 1.5))  # feels more natural
-            reply = get_dei_response(message.content, vent=False)
+            await asyncio.sleep(random.uniform(0.5, 1.5))
+            reply = await get_dei_response_async(message.guild.id, message.content, vent=False, style=cfg["response_style"])
             await message.channel.send(reply)
  
  
@@ -677,14 +847,17 @@ async def on_member_join(member: discord.Member):
     if WELCOME_CHANNEL_ID:
         channel = member.guild.get_channel(WELCOME_CHANNEL_ID)
         if channel:
+            cfg = get_dei_config(member.guild.id)
+            name = cfg["name"]
             welcomes = [
                 f"Oh. {member.mention} is here. Good.",
                 f"{member.mention} just arrived. Welcome. This place is glad you found it.",
                 f"Hey, {member.mention}. You made it. That matters.",
-                f"{member.mention} — welcome. Take your time settling in.",
+                f"{member.mention}, welcome. Take your time settling in.",
                 f"Something felt different just now. Oh. {member.mention} joined. Hello.",
             ]
-            embed = discord.Embed(description=random.choice(welcomes), color=discord.Color.blurple())
+            embed = dei_embed(member.guild.id, description=random.choice(welcomes))
+            embed.set_author(name=name, icon_url=cfg["avatar_url"] or discord.Embed.Empty)
             embed.set_thumbnail(url=member.display_avatar.url)
             await channel.send(f"{member.mention}", embed=embed)
     if LOG_CHANNEL_ID and LOG_SETTINGS.get("member_join"):
@@ -1393,6 +1566,7 @@ HELP_PAGES = [
             ("ℹ️ Info", "\u200b", False),
             ("`/userinfo` [@user]",       "View info about a user.",                True),
             ("`/serverinfo`",             "View info about this server.",           True),
+            ("`/whoisdei`",               "Learn about Dei and her lore.",          True),
         ],
     },
     {
@@ -1432,6 +1606,8 @@ HELP_PAGES = [
             ("`/setactive` [#channel]",      "Toggle an active channel on/off.",    True),
             ("`/channels`",                  "View all channel settings.",          True),
             ("`/logsettings`",               "Toggle log types with a dropdown.",   True),
+            ("`/deiconfig`",                 "Customise Dei's name, avatar, color, bio and personality.", True),
+            ("`/deistyle`",                  "Change Dei's response style with a dropdown.", True),
         ],
     },
 ]
@@ -1575,8 +1751,110 @@ async def grounding(interaction: discord.Interaction):
  
  
 # ─────────────────────────────────────────────
-# ERROR HANDLER
+# DEI CONFIG COMMANDS
 # ─────────────────────────────────────────────
+ 
+class StyleSelect(discord.ui.Select):
+    def __init__(self, guild_id: int):
+        self.guild_id = guild_id
+        current = get_dei_config(guild_id)["response_style"]
+        options = [
+            discord.SelectOption(label="Default",  value="default",  description="Dei as written — dry, warm, complicated.", default=current=="default"),
+            discord.SelectOption(label="Warmer",   value="warm",     description="More openly caring and supportive.",        default=current=="warm"),
+            discord.SelectOption(label="Distant",  value="distant",  description="More reserved and quiet.",                  default=current=="distant"),
+            discord.SelectOption(label="Humorous", value="humorous", description="Dryer, more observational humor.",          default=current=="humorous"),
+        ]
+        super().__init__(placeholder="Choose a response style...", options=options)
+ 
+    async def callback(self, interaction: discord.Interaction):
+        DEI_CONFIG.setdefault(self.guild_id, {})["response_style"] = self.values[0]
+        await interaction.response.send_message(f"✅ Response style set to **{self.values[0]}**.", ephemeral=True)
+ 
+ 
+class StyleView(discord.ui.View):
+    def __init__(self, guild_id: int):
+        super().__init__(timeout=60)
+        self.add_item(StyleSelect(guild_id))
+ 
+ 
+@bot.tree.command(name="deiconfig", description="Customise Dei's name, avatar, color, bio and personality for this server.")
+@app_commands.checks.has_permissions(administrator=True)
+async def deiconfig(
+    interaction: discord.Interaction,
+    display_name:      str = None,
+    full_name:         str = None,
+    avatar_url:        str = None,
+    color_hex:         str = None,
+    bio:               str = None,
+    personality_notes: str = None,
+):
+    guild_id = interaction.guild.id
+    cfg = DEI_CONFIG.setdefault(guild_id, {})
+ 
+    if display_name:      cfg["name"]              = display_name
+    if full_name:         cfg["full_name"]          = full_name
+    if avatar_url:        cfg["avatar_url"]         = avatar_url
+    if bio:               cfg["bio"]               = bio
+    if personality_notes: cfg["personality_notes"]  = personality_notes
+    if color_hex:
+        try:
+            cfg["color"] = int(color_hex.lstrip("#"), 16)
+        except ValueError:
+            await interaction.response.send_message("❌ Invalid hex color. Use format: `ff99cc`", ephemeral=True)
+            return
+ 
+    # Try to set nickname in the server
+    current = get_dei_config(guild_id)
+    try:
+        await interaction.guild.me.edit(nick=current["name"])
+    except Exception:
+        pass
+ 
+    embed = discord.Embed(
+        title="Dei Config Updated",
+        color=discord.Color(current["color"]),
+        timestamp=discord.utils.utcnow()
+    )
+    if current["avatar_url"]:
+        embed.set_thumbnail(url=current["avatar_url"])
+    embed.add_field(name="Name",              value=current["name"],              inline=True)
+    embed.add_field(name="Full Name",         value=current["full_name"],         inline=True)
+    embed.add_field(name="Response Style",    value=current["response_style"],    inline=True)
+    embed.add_field(name="Bio",               value=current["bio"],               inline=False)
+    if current["personality_notes"]:
+        embed.add_field(name="Personality Notes", value=current["personality_notes"], inline=False)
+    embed.set_footer(text="Use /deistyle to change the response style.")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+ 
+ 
+@bot.tree.command(name="deistyle", description="Change Dei's response style for this server.")
+@app_commands.checks.has_permissions(administrator=True)
+async def deistyle(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        "Choose a response style for Dei:",
+        view=StyleView(interaction.guild.id),
+        ephemeral=True
+    )
+ 
+ 
+@bot.tree.command(name="whoisdei", description="Learn about Dei.")
+async def whoisdei(interaction: discord.Interaction):
+    cfg = get_dei_config(interaction.guild.id)
+    embed = discord.Embed(
+        title=f"Who is {cfg['name']}?",
+        description=cfg["bio"],
+        color=discord.Color(cfg["color"]),
+        timestamp=discord.utils.utcnow()
+    )
+    if cfg["avatar_url"]:
+        embed.set_thumbnail(url=cfg["avatar_url"])
+    embed.add_field(name="Full Name",      value=cfg["full_name"],      inline=True)
+    embed.add_field(name="Origin",         value="Vaelun, Alpha Centauri", inline=True)
+    embed.add_field(name="Species",        value="Cenzha'Kae",          inline=True)
+    embed.add_field(name="Chosen by",      value="Kaelyn",              inline=True)
+    embed.add_field(name="Known for",      value="Absorbing Oura, seeing flickers of the future, long sleeves.", inline=False)
+    embed.set_footer(text="She is not a bot. She is a person. Complicated and real, doing her best.")
+    await interaction.response.send_message(embed=embed)
  
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
