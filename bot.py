@@ -35,9 +35,9 @@ RESPONSE_CACHE: dict[int, list[dict]] = {}
 RESPONSE_CACHE_TIME: dict[int, float] = {}
 CACHE_TTL = 300  # seconds
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # CONFIG
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 LOG_CHANNEL_ID      = 0
 WELCOME_CHANNEL_ID  = 0
 BIRTHDAY_CHANNEL_ID = 0
@@ -46,10 +46,10 @@ ACTIVE_CHANNELS     = []  # /setactive
  
 AUTO_BAN_THRESHOLD  = 5  # 0 = disabled
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # DEI PERSONALITY CONFIG (per guild)
 # Populated via /deiconfig or the dashboard
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 DEI_CONFIG: dict[int, dict] = {}
  
 DEFAULT_DEI_CONFIG = {
@@ -65,9 +65,9 @@ DEFAULT_DEI_CONFIG = {
 def get_dei_config(guild_id: int) -> dict:
     return {**DEFAULT_DEI_CONFIG, **DEI_CONFIG.get(guild_id, {})}
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # MOD RULES
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 FORBIDDEN_RULES = [
     (
     "Hate Speech/Slurs",
@@ -148,17 +148,17 @@ FORBIDDEN_RULES = [
 SPAM_MESSAGE_LIMIT = 5
 SPAM_TIME_WINDOW   = 6
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # IN-MEMORY STORES
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 warn_tracker:         dict[int, list[dict]]     = {}
 birthday_store:       dict[int, dict]           = {}
 reaction_roles:       dict[int, dict[str, int]] = {}
 spam_tracker:         dict[int, list[float]]    = {}
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # CRISIS DATA
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 CRISIS_KEYWORDS = [
     "kill myself", "killing myself", "end my life", "want to die",
     "want to be dead", "don't want to be here", "don't want to live",
@@ -168,15 +168,15 @@ CRISIS_KEYWORDS = [
 ]
  
 CRISIS_HOTLINES = [
-    ("🇺🇸 USA",         "988 Suicide & Crisis Lifeline", "Call or text **988**"),
-    ("🇨🇦 Canada",       "Crisis Services Canada",         "Call **1-833-456-4566** or text **45645**"),
-    ("🇬🇧 UK",           "Samaritans",                     "Call **116 123**"),
-    ("🇦🇺 Australia",    "Lifeline",                       "Call **13 11 14** or text **0477 13 11 14**"),
-    ("🇳🇿 New Zealand",  "Lifeline NZ",                    "Call **0800 543 354**"),
-    ("🇮🇪 Ireland",      "Samaritans Ireland",             "Call **116 123**"),
-    ("🇿🇦 South Africa", "SADAG",                          "Call **0800 456 789**"),
-    ("🇮🇳 India",        "iCall",                          "Call **9152987821**"),
-    ("🌍 International", "findahelpline.com",              "Find a helpline in your country at **findahelpline.com**"),
+    ("-- USA",         "988 Suicide & Crisis Lifeline", "Call or text **988**"),
+    ("-- Canada",       "Crisis Services Canada",         "Call **1-833-456-4566** or text **45645**"),
+    ("-- UK",           "Samaritans",                     "Call **116 123**"),
+    ("-- Australia",    "Lifeline",                       "Call **13 11 14** or text **0477 13 11 14**"),
+    ("-- New Zealand",  "Lifeline NZ",                    "Call **0800 543 354**"),
+    ("-- Ireland",      "Samaritans Ireland",             "Call **116 123**"),
+    ("-- South Africa", "SADAG",                          "Call **0800 456 789**"),
+    ("-- India",        "iCall",                          "Call **9152987821**"),
+    ("- International", "findahelpline.com",              "Find a helpline in your country at **findahelpline.com**"),
 ]
  
 HACK_PATTERNS = [
@@ -188,11 +188,11 @@ HACK_PATTERNS = [
     "steamcommunity.ru", "steam-gift", "gift-steam",
 ]
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # DEI HARDCODED RESPONSES
 # Each entry: ([trigger keywords], [possible responses])
 # Dei picks one response at random when a keyword matches.
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 DEI_RESPONSES = [
     # Greetings
     (["hello", "hi", "hey", "hiya", "sup", "heya"],
@@ -412,7 +412,7 @@ DEI_FALLBACKS = [
     "That landed somewhere. I am not sure where yet.",
     "I do not always have the right words. But I am listening.",
     "Something about that feels important. I just cannot place it.",
-    "⊹... Yeah.",
+    "-... Yeah.",
 ]
  
 DEI_VENT_FALLBACKS = [
@@ -423,9 +423,9 @@ DEI_VENT_FALLBACKS = [
     "You are not alone in this space.",
 ]
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # LORE FACTS
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 LORE_FACTS = [
     "Vaelun orbits two suns - Zha'Sol and Zha'Rei. When they overlap, the sky turns gold and violet. The Cenzha call it the Veil.",
     "The Veil is considered sacred. It is said to be the only time the gods can whisper directly to mortals.",
@@ -449,9 +449,9 @@ LORE_FACTS = [
     "Dei learned English by hiding and listening. It was broken at first. She describes it as feeling like speaking underwater.",
 ]
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # 8BALL RESPONSES
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 EIGHTBALL_RESPONSES = [
     "The Veil says yes. Probably.",
     "I have seen flickers of this future. It does not go well for you.",
@@ -517,9 +517,9 @@ async def get_dei_response_async(guild_id: int, content: str, vent: bool = False
     return get_dei_response(content, vent=vent, style=style)
  
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # RESPONSE ENGINE
-# ─────────────────────────────────────────────
+# ---------------------------------------------
  
 STYLE_WARM_SUFFIX = [
     " I am glad you are here.",
@@ -596,16 +596,16 @@ def dei_embed(guild_id: int, description: str = None, title: str = None) -> disc
     embed.set_footer(text=cfg["full_name"])
     return embed
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # BOT SETUP
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=".", intents=intents)
  
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # HELPERS
-# ─────────────────────────────────────────────
+# ---------------------------------------------
  
 async def send_log(guild: discord.Guild, embed: discord.Embed):
     channel = guild.get_channel(LOG_CHANNEL_ID)
@@ -648,7 +648,7 @@ def check_crisis(content: str) -> bool:
  
 def build_hotline_embed() -> discord.Embed:
     embed = discord.Embed(
-        title="💙 You are not alone",
+        title="- You are not alone",
         description="If you are having thoughts of hurting yourself, please reach out to someone who can help. These lines are free, confidential, and available any time.",
         color=discord.Color.blue()
     )
@@ -695,9 +695,9 @@ async def apply_auto_ban(guild: discord.Guild, member: discord.Member):
             print(f"Auto-ban failed: {e}")
  
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # BIRTHDAY TASK
-# ─────────────────────────────────────────────
+# ---------------------------------------------
  
 @tasks.loop(hours=24)
 async def birthday_check():
@@ -711,7 +711,7 @@ async def birthday_check():
                 member = guild.get_member(user_id)
                 if member:
                     embed = discord.Embed(
-                        title="🎂 Happy Birthday!",
+                        title="- Happy Birthday!",
                         description=f"Today is {member.mention}'s birthday. The Veil glows a little brighter for you today.",
                         color=discord.Color.gold(),
                     )
@@ -726,9 +726,9 @@ async def before_birthday_check():
     await asyncio.sleep((midnight - now).total_seconds())
  
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # EVENTS
-# ─────────────────────────────────────────────
+# ---------------------------------------------
  
 @bot.event
 async def on_guild_join(guild: discord.Guild):
@@ -760,6 +760,44 @@ async def on_ready():
         bot.loop.create_task(run_social_polls(bot))
         print("[Social] Polling task started")
     print(f"Dei Talvyrvei is online as {bot.user} (ID: {bot.user.id})")
+ 
+    # Register all existing guilds on startup
+    if DASHBOARD_URL and DASHBOARD_SECRET:
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                for guild in bot.guilds:
+                    await client.post(
+                        f"{DASHBOARD_URL}/api/guilds/register",
+                        headers=_api_headers(),
+                        json={
+                            "guild_id":   str(guild.id),
+                            "guild_name": guild.name,
+                            "guild_icon": str(guild.icon) if guild.icon else "",
+                            "owner_id":   str(guild.owner_id),
+                        }
+                    )
+                    print(f"[API] Registered guild on startup: {guild.name}")
+        except Exception as e:
+            print(f"[API] Failed to register guilds on startup: {e}")
+ 
+    # Register all existing guilds on startup
+    if DASHBOARD_URL and DASHBOARD_SECRET:
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                for guild in bot.guilds:
+                    await client.post(
+                        f"{DASHBOARD_URL}/api/guilds/register",
+                        headers=_api_headers(),
+                        json={
+                            "guild_id":   str(guild.id),
+                            "guild_name": guild.name,
+                            "guild_icon": str(guild.icon) if guild.icon else "",
+                            "owner_id":   str(guild.owner_id),
+                        }
+                    )
+                    print(f"[API] Registered guild on startup: {guild.name}")
+        except Exception as e:
+            print(f"[API] Failed to register guilds on startup: {e}")
  
  
 @bot.event
@@ -794,7 +832,7 @@ async def on_message(message: discord.Message):
         await message.delete()
         try:
             dm_embed = discord.Embed(
-                title="⚠️ Your account may be compromised",
+                title="-- Your account may be compromised",
                 description=(
                     f"A message was sent from your account in **{message.guild.name}** that matches known scam or hack patterns.\n\n"
                     "**Please do the following immediately:**\n"
@@ -810,7 +848,7 @@ async def on_message(message: discord.Message):
         except Exception:
             pass
         alert_embed = discord.Embed(
-            title="🚨 Possible Compromised Account",
+            title="- Possible Compromised Account",
             description=f"{message.author.mention}'s account may have been hacked. The message has been deleted and they have been notified.",
             color=discord.Color.dark_red(),
             timestamp=datetime.datetime.utcnow()
@@ -1004,16 +1042,16 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
         await member.remove_roles(role)
  
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # CHANNEL CONFIG COMMANDS
-# ─────────────────────────────────────────────
+# ---------------------------------------------
  
 @bot.tree.command(name="setlog", description="Set the channel where mod logs are sent.")
 @app_commands.checks.has_permissions(administrator=True)
 async def setlog(interaction: discord.Interaction, channel: discord.TextChannel):
     global LOG_CHANNEL_ID
     LOG_CHANNEL_ID = channel.id
-    await interaction.response.send_message(f"✅ Log channel set to {channel.mention}.", ephemeral=True)
+    await interaction.response.send_message(f"- Log channel set to {channel.mention}.", ephemeral=True)
  
  
 @bot.tree.command(name="setwelcome", description="Set the channel for welcome and goodbye messages.")
@@ -1021,7 +1059,7 @@ async def setlog(interaction: discord.Interaction, channel: discord.TextChannel)
 async def setwelcome(interaction: discord.Interaction, channel: discord.TextChannel):
     global WELCOME_CHANNEL_ID
     WELCOME_CHANNEL_ID = channel.id
-    await interaction.response.send_message(f"✅ Welcome channel set to {channel.mention}.", ephemeral=True)
+    await interaction.response.send_message(f"- Welcome channel set to {channel.mention}.", ephemeral=True)
  
  
 @bot.tree.command(name="setbirthday", description="Set the channel for birthday announcements.")
@@ -1029,7 +1067,7 @@ async def setwelcome(interaction: discord.Interaction, channel: discord.TextChan
 async def setbirthday_channel(interaction: discord.Interaction, channel: discord.TextChannel):
     global BIRTHDAY_CHANNEL_ID
     BIRTHDAY_CHANNEL_ID = channel.id
-    await interaction.response.send_message(f"✅ Birthday channel set to {channel.mention}.", ephemeral=True)
+    await interaction.response.send_message(f"- Birthday channel set to {channel.mention}.", ephemeral=True)
  
  
 @bot.tree.command(name="setvent", description="Add or remove a vent channel.")
@@ -1037,10 +1075,10 @@ async def setbirthday_channel(interaction: discord.Interaction, channel: discord
 async def setvent(interaction: discord.Interaction, channel: discord.TextChannel):
     if channel.id in VENT_CHANNEL_IDS:
         VENT_CHANNEL_IDS.remove(channel.id)
-        await interaction.response.send_message(f"✅ Removed {channel.mention} from vent channels.", ephemeral=True)
+        await interaction.response.send_message(f"- Removed {channel.mention} from vent channels.", ephemeral=True)
     else:
         VENT_CHANNEL_IDS.append(channel.id)
-        await interaction.response.send_message(f"✅ Added {channel.mention} as a vent channel.", ephemeral=True)
+        await interaction.response.send_message(f"- Added {channel.mention} as a vent channel.", ephemeral=True)
  
  
 @bot.tree.command(name="setactive", description="Add or remove an active channel where Dei responds.")
@@ -1048,10 +1086,10 @@ async def setvent(interaction: discord.Interaction, channel: discord.TextChannel
 async def setactive(interaction: discord.Interaction, channel: discord.TextChannel):
     if channel.id in ACTIVE_CHANNELS:
         ACTIVE_CHANNELS.remove(channel.id)
-        await interaction.response.send_message(f"✅ Removed {channel.mention} from active channels.", ephemeral=True)
+        await interaction.response.send_message(f"- Removed {channel.mention} from active channels.", ephemeral=True)
     else:
         ACTIVE_CHANNELS.append(channel.id)
-        await interaction.response.send_message(f"✅ Added {channel.mention} as an active channel.", ephemeral=True)
+        await interaction.response.send_message(f"- Added {channel.mention} as an active channel.", ephemeral=True)
  
  
 @bot.tree.command(name="channels", description="View current channel settings.")
@@ -1073,9 +1111,9 @@ async def channels(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, ephemeral=True)
  
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # MODERATION COMMANDS
-# ─────────────────────────────────────────────
+# ---------------------------------------------
  
 @bot.tree.command(name="dm", description="Send a DM to a member as the bot.")
 @app_commands.checks.has_permissions(moderate_members=True)
@@ -1084,11 +1122,11 @@ async def dm_member(interaction: discord.Interaction, member: discord.Member, me
         embed = discord.Embed(description=message, color=discord.Color.blurple(), timestamp=datetime.datetime.utcnow())
         embed.set_footer(text=f"Message from {interaction.guild.name} moderation team")
         await member.send(embed=embed)
-        await interaction.response.send_message(f"✅ DM sent to {member.mention}.", ephemeral=True)
+        await interaction.response.send_message(f"- DM sent to {member.mention}.", ephemeral=True)
         if LOG_CHANNEL_ID:
             await send_log(interaction.guild, mod_log_embed("DM Sent", interaction.user, member, message))
     except discord.Forbidden:
-        await interaction.response.send_message(f"❌ Could not DM {member.mention} - their DMs may be closed.", ephemeral=True)
+        await interaction.response.send_message(f"- Could not DM {member.mention} - their DMs may be closed.", ephemeral=True)
  
  
 @bot.tree.command(name="kick", description="Kick a member from the server.")
@@ -1123,9 +1161,9 @@ async def unban(interaction: discord.Interaction, user_id: str, reason: str = "N
     try:
         user = await bot.fetch_user(int(user_id))
         await interaction.guild.unban(user, reason=reason)
-        await interaction.response.send_message(f"✅ Unbanned {user} (ID: {user_id}).")
+        await interaction.response.send_message(f"- Unbanned {user} (ID: {user_id}).")
     except Exception as e:
-        await interaction.response.send_message(f"❌ Could not unban: {e}", ephemeral=True)
+        await interaction.response.send_message(f"- Could not unban: {e}", ephemeral=True)
  
  
 @bot.tree.command(name="timeout", description="Timeout a member for a set number of minutes.")
@@ -1155,7 +1193,7 @@ async def warn(interaction: discord.Interaction, member: discord.Member, reason:
     embed.add_field(name="Moderator", value=interaction.user.mention)
     await interaction.response.send_message(embed=embed)
     try:
-        await member.send(f"⚠️ You have been warned in **{interaction.guild.name}**.\n**Reason:** {reason}\n**Total warnings:** {count}")
+        await member.send(f"-- You have been warned in **{interaction.guild.name}**.\n**Reason:** {reason}\n**Total warnings:** {count}")
     except Exception:
         pass
     if LOG_CHANNEL_ID:
@@ -1180,28 +1218,28 @@ async def warnings(interaction: discord.Interaction, member: discord.Member):
 @app_commands.checks.has_permissions(moderate_members=True)
 async def clearwarnings(interaction: discord.Interaction, member: discord.Member):
     warn_tracker[member.id] = []
-    await interaction.response.send_message(f"✅ Cleared all warnings for {member}.", ephemeral=True)
+    await interaction.response.send_message(f"- Cleared all warnings for {member}.", ephemeral=True)
  
  
 @bot.tree.command(name="clear", description="Delete a number of messages from this channel.")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def clear(interaction: discord.Interaction, amount: int):
     if amount < 1 or amount > 100:
-        await interaction.response.send_message("❌ Please choose a number between 1 and 100.", ephemeral=True)
+        await interaction.response.send_message("- Please choose a number between 1 and 100.", ephemeral=True)
         return
     await interaction.response.defer(ephemeral=True)
     deleted = await interaction.channel.purge(limit=amount)
-    await interaction.followup.send(f"✅ Deleted {len(deleted)} message(s).", ephemeral=True)
+    await interaction.followup.send(f"- Deleted {len(deleted)} message(s).", ephemeral=True)
  
  
 @bot.tree.command(name="slowmode", description="Set slowmode for the current channel (0 to disable).")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def slowmode(interaction: discord.Interaction, seconds: int):
     if seconds < 0 or seconds > 21600:
-        await interaction.response.send_message("❌ Slowmode must be between 0 and 21600 seconds.", ephemeral=True)
+        await interaction.response.send_message("- Slowmode must be between 0 and 21600 seconds.", ephemeral=True)
         return
     await interaction.channel.edit(slowmode_delay=seconds)
-    msg = "✅ Slowmode disabled." if seconds == 0 else f"✅ Slowmode set to {seconds} second(s)."
+    msg = "- Slowmode disabled." if seconds == 0 else f"- Slowmode set to {seconds} second(s)."
     await interaction.response.send_message(msg, ephemeral=True)
  
  
@@ -1209,10 +1247,10 @@ async def slowmode(interaction: discord.Interaction, seconds: int):
 @app_commands.checks.has_permissions(manage_roles=True)
 async def addrole(interaction: discord.Interaction, member: discord.Member, role: discord.Role):
     if role in member.roles:
-        await interaction.response.send_message(f"❌ {member.mention} already has {role.mention}.", ephemeral=True)
+        await interaction.response.send_message(f"- {member.mention} already has {role.mention}.", ephemeral=True)
         return
     await member.add_roles(role)
-    await interaction.response.send_message(f"✅ Added {role.mention} to {member.mention}.")
+    await interaction.response.send_message(f"- Added {role.mention} to {member.mention}.")
     if LOG_CHANNEL_ID:
         await send_log(interaction.guild, mod_log_embed("Role Added", interaction.user, member, role.name))
  
@@ -1221,10 +1259,10 @@ async def addrole(interaction: discord.Interaction, member: discord.Member, role
 @app_commands.checks.has_permissions(manage_roles=True)
 async def removerole(interaction: discord.Interaction, member: discord.Member, role: discord.Role):
     if role not in member.roles:
-        await interaction.response.send_message(f"❌ {member.mention} does not have {role.mention}.", ephemeral=True)
+        await interaction.response.send_message(f"- {member.mention} does not have {role.mention}.", ephemeral=True)
         return
     await member.remove_roles(role)
-    await interaction.response.send_message(f"✅ Removed {role.mention} from {member.mention}.")
+    await interaction.response.send_message(f"- Removed {role.mention} from {member.mention}.")
     if LOG_CHANNEL_ID:
         await send_log(interaction.guild, mod_log_embed("Role Removed", interaction.user, member, role.name))
  
@@ -1232,20 +1270,20 @@ async def removerole(interaction: discord.Interaction, member: discord.Member, r
 @bot.tree.command(name="report", description="Anonymously report a message or user to the mods.")
 async def report(interaction: discord.Interaction, reason: str, message_link: str = None):
     if not LOG_CHANNEL_ID:
-        await interaction.response.send_message("❌ No log channel is set up.", ephemeral=True)
+        await interaction.response.send_message("- No log channel is set up.", ephemeral=True)
         return
-    embed = discord.Embed(title="🚨 Anonymous Report", color=discord.Color.red(), timestamp=datetime.datetime.utcnow())
+    embed = discord.Embed(title="- Anonymous Report", color=discord.Color.red(), timestamp=datetime.datetime.utcnow())
     embed.add_field(name="Reason", value=reason, inline=False)
     if message_link:
         embed.add_field(name="Message Link", value=message_link, inline=False)
     embed.set_footer(text="This report was submitted anonymously.")
     await send_log(interaction.guild, embed)
-    await interaction.response.send_message("✅ Your report has been sent to the moderation team. Thank you.", ephemeral=True)
+    await interaction.response.send_message("- Your report has been sent to the moderation team. Thank you.", ephemeral=True)
  
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # REACTION ROLES
-# ─────────────────────────────────────────────
+# ---------------------------------------------
  
 @bot.tree.command(name="reactionrole", description="Assign a role to an emoji on a specific message.")
 @app_commands.checks.has_permissions(manage_roles=True)
@@ -1259,7 +1297,7 @@ async def reactionrole(interaction: discord.Interaction, message_id: str, emoji:
         await msg.add_reaction(emoji)
     except Exception:
         pass
-    await interaction.response.send_message(f"✅ Reacting with {emoji} will now give/remove {role.mention}.", ephemeral=True)
+    await interaction.response.send_message(f"- Reacting with {emoji} will now give/remove {role.mention}.", ephemeral=True)
  
  
 @bot.tree.command(name="reactionrolelist", description="List all active reaction roles.")
@@ -1273,14 +1311,14 @@ async def reactionrolelist(interaction: discord.Interaction):
         lines = []
         for emoji, role_id in emojis.items():
             role = interaction.guild.get_role(role_id)
-            lines.append(f"{emoji} → {role.mention if role else role_id}")
+            lines.append(f"{emoji} - {role.mention if role else role_id}")
         embed.add_field(name=f"Message ID: {msg_id}", value="\n".join(lines), inline=False)
     await interaction.response.send_message(embed=embed, ephemeral=True)
  
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # EMBED / ANNOUNCEMENT / RULES
-# ─────────────────────────────────────────────
+# ---------------------------------------------
  
 @bot.tree.command(name="embed", description="Post a custom embed.")
 @app_commands.checks.has_permissions(manage_messages=True)
@@ -1295,7 +1333,7 @@ async def embed_cmd(interaction: discord.Interaction, title: str, description: s
 @bot.tree.command(name="announce", description="Post a styled announcement embed.")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def announce(interaction: discord.Interaction, title: str, message: str, color: str = "gold", ping_everyone: bool = False):
-    embed = discord.Embed(title=f"📢 {title}", description=message, color=parse_color(color), timestamp=datetime.datetime.utcnow())
+    embed = discord.Embed(title=f"- {title}", description=message, color=parse_color(color), timestamp=datetime.datetime.utcnow())
     embed.set_footer(text=f"Announced by {interaction.user.display_name}")
     await interaction.response.send_message(content="@everyone" if ping_everyone else None, embed=embed)
  
@@ -1303,7 +1341,7 @@ async def announce(interaction: discord.Interaction, title: str, message: str, c
 @bot.tree.command(name="rules", description="Post the server rules embed.")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def rules(interaction: discord.Interaction):
-    embed = discord.Embed(title="📜 Server Rules", description="This is a space for people to exist safely. Please respect that.", color=discord.Color.blurple(), timestamp=datetime.datetime.utcnow())
+    embed = discord.Embed(title="- Server Rules", description="This is a space for people to exist safely. Please respect that.", color=discord.Color.blurple(), timestamp=datetime.datetime.utcnow())
     rule_list = [
         ("1. Be kind",                 "Treat everyone here with basic decency."),
         ("2. No hate speech or slurs", "This includes slurs of any kind - racial, homophobic, transphobic, ableist, or otherwise."),
@@ -1320,9 +1358,9 @@ async def rules(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
  
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # INFO COMMANDS
-# ─────────────────────────────────────────────
+# ---------------------------------------------
  
 @bot.tree.command(name="userinfo", description="Show info about a user.")
 async def userinfo(interaction: discord.Interaction, member: discord.Member = None):
@@ -1357,9 +1395,9 @@ async def serverinfo(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
  
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # FUN / ENGAGEMENT COMMANDS
-# ─────────────────────────────────────────────
+# ---------------------------------------------
  
 @bot.tree.command(name="ask", description="Ask Dei a question directly, anywhere.")
 async def ask(interaction: discord.Interaction, question: str):
@@ -1373,7 +1411,7 @@ async def ask(interaction: discord.Interaction, question: str):
  
 @bot.tree.command(name="lore", description="Get a random lore fact about Vaelun and the Cenzha.")
 async def lore(interaction: discord.Interaction):
-    embed = discord.Embed(title="📖 From the Archives of Vaelun", description=random.choice(LORE_FACTS), color=discord.Color.gold())
+    embed = discord.Embed(title="- From the Archives of Vaelun", description=random.choice(LORE_FACTS), color=discord.Color.gold())
     embed.set_footer(text="- Dei Talvyrvei")
     await interaction.response.send_message(embed=embed)
  
@@ -1381,7 +1419,7 @@ async def lore(interaction: discord.Interaction):
 @bot.tree.command(name="8ball", description="Ask Dei the magic 8ball a question.")
 async def eightball(interaction: discord.Interaction, question: str):
     embed = discord.Embed(color=discord.Color.blurple())
-    embed.add_field(name="🔮 Question", value=question,                           inline=False)
+    embed.add_field(name="- Question", value=question,                           inline=False)
     embed.add_field(name="Answer",      value=random.choice(EIGHTBALL_RESPONSES), inline=False)
     await interaction.response.send_message(embed=embed)
  
@@ -1389,16 +1427,16 @@ async def eightball(interaction: discord.Interaction, question: str):
 @bot.tree.command(name="poll", description="Create a poll. Leave options blank for a yes/no poll.")
 async def poll(interaction: discord.Interaction, question: str, option1: str = None, option2: str = None, option3: str = None, option4: str = None):
     options = [o for o in [option1, option2, option3, option4] if o]
-    embed   = discord.Embed(title="📊 " + question, color=discord.Color.blurple(), timestamp=datetime.datetime.utcnow())
+    embed   = discord.Embed(title="- " + question, color=discord.Color.blurple(), timestamp=datetime.datetime.utcnow())
     embed.set_footer(text=f"Poll by {interaction.user.display_name}")
     if not options:
-        embed.description = "React with ✅ for Yes or ❌ for No."
+        embed.description = "React with - for Yes or - for No."
         await interaction.response.send_message(embed=embed)
         msg = await interaction.original_response()
-        await msg.add_reaction("✅")
-        await msg.add_reaction("❌")
+        await msg.add_reaction("-")
+        await msg.add_reaction("-")
     else:
-        number_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
+        number_emojis = ["1--", "2--", "3--", "4--"]
         embed.description = "\n".join(f"{number_emojis[i]} {opt}" for i, opt in enumerate(options))
         await interaction.response.send_message(embed=embed)
         msg = await interaction.original_response()
@@ -1409,23 +1447,23 @@ async def poll(interaction: discord.Interaction, question: str, option1: str = N
 @bot.tree.command(name="birthday", description="Register your birthday so Dei can celebrate you.")
 async def birthday(interaction: discord.Interaction, month: int, day: int):
     if not (1 <= month <= 12) or not (1 <= day <= 31):
-        await interaction.response.send_message("❌ That does not look like a valid date.", ephemeral=True)
+        await interaction.response.send_message("- That does not look like a valid date.", ephemeral=True)
         return
     birthday_store[interaction.user.id] = {"month": month, "day": day}
-    await interaction.response.send_message(f"✅ Birthday saved as {month}/{day}. I will remember.", ephemeral=True)
+    await interaction.response.send_message(f"- Birthday saved as {month}/{day}. I will remember.", ephemeral=True)
  
  
 @bot.tree.command(name="remindme", description="Set a reminder. Dei will DM you when the time is up.")
 async def remindme(interaction: discord.Interaction, minutes: int, reminder: str):
     if minutes < 1 or minutes > 10080:
-        await interaction.response.send_message("❌ Please choose between 1 and 10080 minutes.", ephemeral=True)
+        await interaction.response.send_message("- Please choose between 1 and 10080 minutes.", ephemeral=True)
         return
-    await interaction.response.send_message(f"✅ I will remind you in {minutes} minute(s).", ephemeral=True)
+    await interaction.response.send_message(f"- I will remind you in {minutes} minute(s).", ephemeral=True)
  
     async def send_reminder():
         await asyncio.sleep(minutes * 60)
         try:
-            embed = discord.Embed(title="⏰ Reminder", description=reminder, color=discord.Color.blurple(), timestamp=datetime.datetime.utcnow())
+            embed = discord.Embed(title="- Reminder", description=reminder, color=discord.Color.blurple(), timestamp=datetime.datetime.utcnow())
             embed.set_footer(text=f"You asked me to remind you {minutes} minute(s) ago.")
             await interaction.user.send(embed=embed)
         except Exception:
@@ -1434,9 +1472,9 @@ async def remindme(interaction: discord.Interaction, minutes: int, reminder: str
     asyncio.create_task(send_reminder())
  
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # LOG SETTINGS
-# ─────────────────────────────────────────────
+# ---------------------------------------------
  
 # Which log types are enabled (all on by default)
 LOG_SETTINGS = {
@@ -1455,18 +1493,18 @@ LOG_SETTINGS = {
 }
  
 LOG_LABELS = {
-    "member_join":     "👋 Member Join",
-    "member_leave":    "🚪 Member Leave",
-    "message_delete":  "🗑️ Message Deleted",
-    "message_edit":    "✏️ Message Edited",
-    "member_ban":      "🔨 Member Banned",
-    "member_unban":    "✅ Member Unbanned",
-    "nickname_change": "📝 Nickname Changed",
-    "role_update":     "🎭 Role Updated",
-    "channel_create":  "📁 Channel Created",
-    "channel_delete":  "❌ Channel Deleted",
-    "mod_actions":     "⚠️ Mod Actions (warn/kick/ban/etc)",
-    "compromised":     "🚨 Compromised Account",
+    "member_join":     "- Member Join",
+    "member_leave":    "- Member Leave",
+    "message_delete":  "-- Message Deleted",
+    "message_edit":    "-- Message Edited",
+    "member_ban":      "- Member Banned",
+    "member_unban":    "- Member Unbanned",
+    "nickname_change": "- Nickname Changed",
+    "role_update":     "- Role Updated",
+    "channel_create":  "- Channel Created",
+    "channel_delete":  "- Channel Deleted",
+    "mod_actions":     "-- Mod Actions (warn/kick/ban/etc)",
+    "compromised":     "- Compromised Account",
 }
  
  
@@ -1508,12 +1546,12 @@ class LogSettingsSelect(discord.ui.Select):
             timestamp=discord.utils.utcnow()
         )
         embed.add_field(
-            name="✅ Enabled",
+            name="- Enabled",
             value="\n".join(enabled) if enabled else "None",
             inline=True
         )
         embed.add_field(
-            name="❌ Disabled",
+            name="- Disabled",
             value="\n".join(disabled) if disabled else "None",
             inline=True
         )
@@ -1528,51 +1566,51 @@ async def logsettings(interaction: discord.Interaction):
     disabled = [LOG_LABELS[k] for k, v in LOG_SETTINGS.items() if not v]
  
     embed = discord.Embed(
-        title="⚙️ Log Settings",
+        title="-- Log Settings",
         description="Use the menu below to toggle which events Dei logs. Select the ones you want **enabled** and hit confirm.",
         color=discord.Color.blurple()
     )
     embed.add_field(
-        name="✅ Currently Enabled",
+        name="- Currently Enabled",
         value="\n".join(enabled) if enabled else "None",
         inline=True
     )
     embed.add_field(
-        name="❌ Currently Disabled",
+        name="- Currently Disabled",
         value="\n".join(disabled) if disabled else "None",
         inline=True
     )
     await interaction.response.send_message(embed=embed, view=LogSettingsView(), ephemeral=True)
  
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # HELP COMMAND
-# ─────────────────────────────────────────────
+# ---------------------------------------------
  
 HELP_PAGES = [
     {
-        "title": "⊹ Help - Conversation & Fun",
+        "title": "- Help - Conversation & Fun",
         "fields": [
-            ("💬 Conversation", "\u200b", False),
+            ("- Conversation", "\u200b", False),
             ("`/ask` [question]",         "Ask Dei anything, anywhere.",           True),
             ("`/lore`",                   "Get a random Vaelun lore fact.",         True),
             ("`/8ball` [question]",       "Ask Dei the magic 8ball.",               True),
-            ("🌿 Wellness", "\u200b", False),
+            ("- Wellness", "\u200b", False),
             ("`/grounding`",              "Dei walks you through a grounding exercise for anxiety or overwhelm.", False),
-            ("🎉 Fun", "\u200b", False),
+            ("- Fun", "\u200b", False),
             ("`/poll` [question]",        "Create a yes/no or multi-option poll.",  True),
             ("`/birthday` [month] [day]", "Register your birthday.",                True),
             ("`/remindme` [min] [text]",  "Set a personal DM reminder.",            True),
-            ("ℹ️ Info", "\u200b", False),
+            ("-- Info", "\u200b", False),
             ("`/userinfo` [@user]",       "View info about a user.",                True),
             ("`/serverinfo`",             "View info about this server.",           True),
             ("`/whoisdei`",               "Learn about Dei and her lore.",          True),
         ],
     },
     {
-        "title": "⊹ Help - Moderation",
+        "title": "- Help - Moderation",
         "fields": [
-            ("🔒 Moderation", "These require Moderator permissions.", False),
+            ("- Moderation", "These require Moderator permissions.", False),
             ("`/warn` [@user] [reason]",     "Warn a member.",                      True),
             ("`/warnings` [@user]",          "View a member's warnings.",           True),
             ("`/clearwarnings` [@user]",     "Clear a member's warnings.",          True),
@@ -1589,16 +1627,16 @@ HELP_PAGES = [
         ],
     },
     {
-        "title": "⊹ Help - Announcements, Roles & Admin",
+        "title": "- Help - Announcements, Roles & Admin",
         "fields": [
-            ("📢 Announcements", "\u200b", False),
+            ("- Announcements", "\u200b", False),
             ("`/embed` [title] [desc]",      "Post a custom embed.",                True),
             ("`/announce` [title] [msg]",    "Post a styled announcement.",         True),
             ("`/rules`",                     "Post the server rules embed.",        True),
-            ("🎭 Reaction Roles", "\u200b", False),
+            ("- Reaction Roles", "\u200b", False),
             ("`/reactionrole` [msg] [emoji] [role]", "Link an emoji to a role.",   True),
             ("`/reactionrolelist`",          "View all active reaction roles.",     True),
-            ("🔒 Admin Config", "These require Administrator permissions.", False),
+            ("- Admin Config", "These require Administrator permissions.", False),
             ("`/setlog` [#channel]",         "Set the mod log channel.",            True),
             ("`/setwelcome` [#channel]",     "Set the welcome channel.",            True),
             ("`/setbirthday` [#channel]",    "Set the birthday channel.",           True),
@@ -1617,13 +1655,13 @@ def build_help_embed(page: int) -> discord.Embed:
     data = HELP_PAGES[page]
     embed = discord.Embed(
         title=data["title"],
-        description=f"Page {page + 1} of {len(HELP_PAGES)} · Use the buttons to navigate.",
+        description=f"Page {page + 1} of {len(HELP_PAGES)} - Use the buttons to navigate.",
         color=discord.Color.blurple(),
         timestamp=discord.utils.utcnow()
     )
     for name, value, inline in data["fields"]:
         embed.add_field(name=name, value=value, inline=inline)
-    embed.set_footer(text="Dei Talvyrvei · Type a message in an active channel to talk to me directly.")
+    embed.set_footer(text="Dei Talvyrvei - Type a message in an active channel to talk to me directly.")
     return embed
  
  
@@ -1638,7 +1676,7 @@ class HelpView(discord.ui.View):
         self.next_btn.disabled = self.page == len(HELP_PAGES) - 1
         self.page_label.label  = f"{self.page + 1} / {len(HELP_PAGES)}"
  
-    @discord.ui.button(label="←", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="-", style=discord.ButtonStyle.secondary)
     async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.page -= 1
         self.update_buttons()
@@ -1648,7 +1686,7 @@ class HelpView(discord.ui.View):
     async def page_label(self, interaction: discord.Interaction, button: discord.ui.Button):
         pass
  
-    @discord.ui.button(label="→", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="-", style=discord.ButtonStyle.secondary)
     async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.page += 1
         self.update_buttons()
@@ -1660,9 +1698,9 @@ async def help_cmd(interaction: discord.Interaction):
     await interaction.response.send_message(embed=build_help_embed(0), view=HelpView(0), ephemeral=True)
  
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # GROUNDING COMMAND
-# ─────────────────────────────────────────────
+# ---------------------------------------------
  
 GROUNDING_EXERCISES = [
     {
@@ -1742,7 +1780,7 @@ async def grounding(interaction: discord.Interaction):
     exercise = random.choice(GROUNDING_EXERCISES)
  
     embed = discord.Embed(
-        title=f"🌿 Grounding - {exercise['name']}",
+        title=f"- Grounding - {exercise['name']}",
         description=exercise["description"],
         color=discord.Color.from_rgb(168, 191, 240),
     )
@@ -1750,9 +1788,9 @@ async def grounding(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
  
  
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # DEI CONFIG COMMANDS
-# ─────────────────────────────────────────────
+# ---------------------------------------------
  
 class StyleSelect(discord.ui.Select):
     def __init__(self, guild_id: int):
@@ -1768,7 +1806,7 @@ class StyleSelect(discord.ui.Select):
  
     async def callback(self, interaction: discord.Interaction):
         DEI_CONFIG.setdefault(self.guild_id, {})["response_style"] = self.values[0]
-        await interaction.response.send_message(f"✅ Response style set to **{self.values[0]}**.", ephemeral=True)
+        await interaction.response.send_message(f"- Response style set to **{self.values[0]}**.", ephemeral=True)
  
  
 class StyleView(discord.ui.View):
@@ -1800,7 +1838,7 @@ async def deiconfig(
         try:
             cfg["color"] = int(color_hex.lstrip("#"), 16)
         except ValueError:
-            await interaction.response.send_message("❌ Invalid hex color. Use format: `ff99cc`", ephemeral=True)
+            await interaction.response.send_message("- Invalid hex color. Use format: `ff99cc`", ephemeral=True)
             return
  
     # Try to set nickname in the server
@@ -1859,9 +1897,9 @@ async def whoisdei(interaction: discord.Interaction):
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_commands.MissingPermissions):
-        await interaction.response.send_message("❌ You do not have permission to use this command.", ephemeral=True)
+        await interaction.response.send_message("- You do not have permission to use this command.", ephemeral=True)
     else:
-        await interaction.response.send_message(f"❌ An error occurred: {error}", ephemeral=True)
+        await interaction.response.send_message(f"- An error occurred: {error}", ephemeral=True)
  
  
 bot.run(DISCORD_TOKEN)
