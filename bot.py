@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
  
-# Social alerts — import if file exists
+# Social alerts - import if file exists
 try:
     from social_alerts import run_social_polls
     SOCIAL_ENABLED = True
@@ -331,7 +331,7 @@ DEI_RESPONSES = [
     # Food
     (["food", "eat", "hungry", "cooking", "meal"],
      [
-        "I do not eat meat. My people never did. Ilari — creatures — are sacred.",
+        "I do not eat meat. My people never did. Ilari - creatures - are sacred.",
         "Human food is interesting. Some of it I genuinely enjoy. Some of it is baffling.",
         "I had something called a grilled cheese sandwich recently. I understand why humans are attached to it.",
      ]),
@@ -396,7 +396,7 @@ DEI_VENT_RESPONSES = [
      ]),
     (["thank you", "thanks", "this helped", "feeling better"],
      [
-        "I am glad. You did the hard part — you spoke.",
+        "I am glad. You did the hard part - you spoke.",
         "Of course. I mean that.",
         "You are going to be okay. Not all at once. But you are.",
         "Come back whenever you need to. This space is yours.",
@@ -427,7 +427,7 @@ DEI_VENT_FALLBACKS = [
 # LORE FACTS
 # ─────────────────────────────────────────────
 LORE_FACTS = [
-    "Vaelun orbits two suns — Zha'Sol and Zha'Rei. When they overlap, the sky turns gold and violet. The Cenzha call it the Veil.",
+    "Vaelun orbits two suns - Zha'Sol and Zha'Rei. When they overlap, the sky turns gold and violet. The Cenzha call it the Veil.",
     "The Veil is considered sacred. It is said to be the only time the gods can whisper directly to mortals.",
     "Vaelun has no moons. Instead, the planet itself glows at night. The Cenzha call this light Oura.",
     "The Cenzha are born with four arms and four eyes. Their hair and eyes change color when they come of age and receive their powers.",
@@ -435,16 +435,16 @@ LORE_FACTS = [
     "The six castes of Vaelun are: Lio (government), Vei (soldiers and demigods), Thae (priests), Rai (healers and artisans), Tal (citizens), and Vyr (the outcasts).",
     "To be cast into Vyr is to be stripped of your caste name. You become invisible to Vaelun society.",
     "There are four subspecies of Cenzha: standard Cenzha, Cenzha'Mali (blood and flesh), Cenzha'Kae (Oura feeders), and Cenzha'Nul (no Oura at all).",
-    "At three cycles old — roughly six human years — every Cenzha child undergoes the Test. A blood draw determines their subspecies and whether a god has chosen them.",
+    "At three cycles old - roughly six human years - every Cenzha child undergoes the Test. A blood draw determines their subspecies and whether a god has chosen them.",
     "Kaelyn is the Goddess of the Iridescent Oura. She governs healing, psychic ability, plasma, space, gravity, and purity.",
     "Nasir is the God of the Shadow Oura. He governs shadow, decay, void, necromancy, and chaos.",
-    "Cithrel is the Goddess of the Fierce Oura — fire, destruction, electricity, alchemy, vitality, and ash.",
+    "Cithrel is the Goddess of the Fierce Oura - fire, destruction, electricity, alchemy, vitality, and ash.",
     "Saevel governs water, time, and ice. Aerith governs air, smoke, and gases. Zeno governs flora, healing, earth, and weather.",
-    "Dei is Cenzha'Kae — she absorbs life energy from living things, sometimes without meaning to.",
+    "Dei is Cenzha'Kae - she absorbs life energy from living things, sometimes without meaning to.",
     "Dei's twin brother Jaesyn was chosen by Nasir and cursed to be Cenzha'Mali. On Earth, he disappeared.",
     "The gold markings on Dei's skin only appear when she uses her powers. On Earth, she wears long sleeves.",
-    "Dei and Jaesyn were experimented on in Vyr. One experiment caused them to borderline combine powers — this is why Dei has a black streak in her hair.",
-    "The Cenzha do not eat meat. They believe in the sanctity of Ilari — living creatures.",
+    "Dei and Jaesyn were experimented on in Vyr. One experiment caused them to borderline combine powers - this is why Dei has a black streak in her hair.",
+    "The Cenzha do not eat meat. They believe in the sanctity of Ilari - living creatures.",
     "Dei's ship crashed on Earth. She buried the crew herself, wishing them well into the Veil.",
     "Dei learned English by hiding and listening. It was broken at first. She describes it as feeling like speaking underwater.",
 ]
@@ -1088,7 +1088,7 @@ async def dm_member(interaction: discord.Interaction, member: discord.Member, me
         if LOG_CHANNEL_ID:
             await send_log(interaction.guild, mod_log_embed("DM Sent", interaction.user, member, message))
     except discord.Forbidden:
-        await interaction.response.send_message(f"❌ Could not DM {member.mention} — their DMs may be closed.", ephemeral=True)
+        await interaction.response.send_message(f"❌ Could not DM {member.mention} - their DMs may be closed.", ephemeral=True)
  
  
 @bot.tree.command(name="kick", description="Kick a member from the server.")
@@ -1172,7 +1172,7 @@ async def warnings(interaction: discord.Interaction, member: discord.Member):
         return
     embed = discord.Embed(title=f"Warnings for {member}", color=discord.Color.orange())
     for i, w in enumerate(user_warns, 1):
-        embed.add_field(name=f"Warning {i} — {w['time']}", value=w["reason"], inline=False)
+        embed.add_field(name=f"Warning {i} - {w['time']}", value=w["reason"], inline=False)
     await interaction.response.send_message(embed=embed, ephemeral=True)
  
  
@@ -1306,7 +1306,7 @@ async def rules(interaction: discord.Interaction):
     embed = discord.Embed(title="📜 Server Rules", description="This is a space for people to exist safely. Please respect that.", color=discord.Color.blurple(), timestamp=datetime.datetime.utcnow())
     rule_list = [
         ("1. Be kind",                 "Treat everyone here with basic decency."),
-        ("2. No hate speech or slurs", "This includes slurs of any kind — racial, homophobic, transphobic, ableist, or otherwise."),
+        ("2. No hate speech or slurs", "This includes slurs of any kind - racial, homophobic, transphobic, ableist, or otherwise."),
         ("3. Keep it clean",           "No NSFW content outside of designated channels."),
         ("4. No threats or doxxing",   "Threatening anyone or sharing personal information without consent is an immediate ban."),
         ("5. No spam or flooding",     "Do not spam messages, emojis, or links."),
@@ -1328,7 +1328,7 @@ async def rules(interaction: discord.Interaction):
 async def userinfo(interaction: discord.Interaction, member: discord.Member = None):
     member = member or interaction.user
     roles  = [r.mention for r in member.roles if r.name != "@everyone"]
-    embed  = discord.Embed(title=f"User Info — {member}", color=member.color, timestamp=datetime.datetime.utcnow())
+    embed  = discord.Embed(title=f"User Info - {member}", color=member.color, timestamp=datetime.datetime.utcnow())
     embed.set_thumbnail(url=member.display_avatar.url)
     embed.add_field(name="ID",             value=member.id,                                 inline=True)
     embed.add_field(name="Nickname",       value=member.nick or "None",                     inline=True)
@@ -1345,7 +1345,7 @@ async def userinfo(interaction: discord.Interaction, member: discord.Member = No
 @bot.tree.command(name="serverinfo", description="Show info about this server.")
 async def serverinfo(interaction: discord.Interaction):
     guild = interaction.guild
-    embed = discord.Embed(title=f"Server Info — {guild.name}", color=discord.Color.blurple(), timestamp=datetime.datetime.utcnow())
+    embed = discord.Embed(title=f"Server Info - {guild.name}", color=discord.Color.blurple(), timestamp=datetime.datetime.utcnow())
     if guild.icon:
         embed.set_thumbnail(url=guild.icon.url)
     embed.add_field(name="ID",       value=guild.id,                              inline=True)
@@ -1374,7 +1374,7 @@ async def ask(interaction: discord.Interaction, question: str):
 @bot.tree.command(name="lore", description="Get a random lore fact about Vaelun and the Cenzha.")
 async def lore(interaction: discord.Interaction):
     embed = discord.Embed(title="📖 From the Archives of Vaelun", description=random.choice(LORE_FACTS), color=discord.Color.gold())
-    embed.set_footer(text="— Dei Talvyrvei")
+    embed.set_footer(text="- Dei Talvyrvei")
     await interaction.response.send_message(embed=embed)
  
  
@@ -1551,7 +1551,7 @@ async def logsettings(interaction: discord.Interaction):
  
 HELP_PAGES = [
     {
-        "title": "⊹ Help — Conversation & Fun",
+        "title": "⊹ Help - Conversation & Fun",
         "fields": [
             ("💬 Conversation", "\u200b", False),
             ("`/ask` [question]",         "Ask Dei anything, anywhere.",           True),
@@ -1570,7 +1570,7 @@ HELP_PAGES = [
         ],
     },
     {
-        "title": "⊹ Help — Moderation",
+        "title": "⊹ Help - Moderation",
         "fields": [
             ("🔒 Moderation", "These require Moderator permissions.", False),
             ("`/warn` [@user] [reason]",     "Warn a member.",                      True),
@@ -1589,7 +1589,7 @@ HELP_PAGES = [
         ],
     },
     {
-        "title": "⊹ Help — Announcements, Roles & Admin",
+        "title": "⊹ Help - Announcements, Roles & Admin",
         "fields": [
             ("📢 Announcements", "\u200b", False),
             ("`/embed` [title] [desc]",      "Post a custom embed.",                True),
@@ -1669,11 +1669,11 @@ GROUNDING_EXERCISES = [
         "name": "5-4-3-2-1",
         "description": (
             "This one grounds you in what is real and present. Take your time with each step.\n\n"
-            "**5 —** Look around. Name five things you can *see*.\n"
-            "**4 —** Notice four things you can *touch*. Feel their texture.\n"
-            "**3 —** Listen. Name three things you can *hear*.\n"
-            "**2 —** Find two things you can *smell*. Or think of two scents you like.\n"
-            "**1 —** Notice one thing you can *taste*.\n\n"
+            "**5 -** Look around. Name five things you can *see*.\n"
+            "**4 -** Notice four things you can *touch*. Feel their texture.\n"
+            "**3 -** Listen. Name three things you can *hear*.\n"
+            "**2 -** Find two things you can *smell*. Or think of two scents you like.\n"
+            "**1 -** Notice one thing you can *taste*.\n\n"
             "*Breathe through each one. You do not have to rush.*"
         ),
     },
@@ -1695,7 +1695,7 @@ GROUNDING_EXERCISES = [
             "Sometimes the body needs something physical to interrupt the spiral.\n\n"
             "If you can, go to a sink and run cold water over your hands or wrists.\n"
             "Feel the temperature. Focus on just that sensation.\n\n"
-            "If you cannot do that right now — hold something cold if it is nearby.\n"
+            "If you cannot do that right now - hold something cold if it is nearby.\n"
             "A cup. A window. Anything.\n\n"
             "*You do not have to think. Just feel the cold. That is enough for right now.*"
         ),
@@ -1704,7 +1704,7 @@ GROUNDING_EXERCISES = [
         "name": "Name Your Surroundings",
         "description": (
             "Look around the space you are in right now.\n\n"
-            "Pick one object. Say its name — out loud if you can, or in your head.\n"
+            "Pick one object. Say its name - out loud if you can, or in your head.\n"
             "Then pick another. And another.\n\n"
             "Keep going until you feel the noise inside get a little quieter.\n\n"
             "*This room is real. You are in it. That is something solid to stand on.*"
@@ -1715,18 +1715,18 @@ GROUNDING_EXERCISES = [
         "description": (
             "Close your eyes if you are comfortable doing that.\n\n"
             "Picture a place where you feel safe. It can be real or imagined.\n"
-            "Notice the details — what does it look like? What does it smell like?\n"
+            "Notice the details - what does it look like? What does it smell like?\n"
             "Is it warm or cool? Is it quiet or does it have sounds you love?\n\n"
             "Stay there for a moment. You can visit this place whenever you need to.\n\n"
             "*On Vaelun, I used to go to the edge of the Veil and just watch the light. "
-            "Wherever yours is — it belongs to you.*"
+            "Wherever yours is - it belongs to you.*"
         ),
     },
     {
         "name": "Progressive Muscle Relaxation",
         "description": (
             "Your body holds tension without you realizing it. This helps release it.\n\n"
-            "Start with your hands — clench them into fists as tight as you can.\n"
+            "Start with your hands - clench them into fists as tight as you can.\n"
             "Hold for five seconds. Then let go completely.\n\n"
             "Move up to your arms. Tense them. Hold. Release.\n"
             "Then your shoulders. Your face. Your stomach. Your legs. Your feet.\n\n"
@@ -1742,7 +1742,7 @@ async def grounding(interaction: discord.Interaction):
     exercise = random.choice(GROUNDING_EXERCISES)
  
     embed = discord.Embed(
-        title=f"🌿 Grounding — {exercise['name']}",
+        title=f"🌿 Grounding - {exercise['name']}",
         description=exercise["description"],
         color=discord.Color.from_rgb(168, 191, 240),
     )
@@ -1759,7 +1759,7 @@ class StyleSelect(discord.ui.Select):
         self.guild_id = guild_id
         current = get_dei_config(guild_id)["response_style"]
         options = [
-            discord.SelectOption(label="Default",  value="default",  description="Dei as written — dry, warm, complicated.", default=current=="default"),
+            discord.SelectOption(label="Default",  value="default",  description="Dei as written - dry, warm, complicated.", default=current=="default"),
             discord.SelectOption(label="Warmer",   value="warm",     description="More openly caring and supportive.",        default=current=="warm"),
             discord.SelectOption(label="Distant",  value="distant",  description="More reserved and quiet.",                  default=current=="distant"),
             discord.SelectOption(label="Humorous", value="humorous", description="Dryer, more observational humor.",          default=current=="humorous"),
