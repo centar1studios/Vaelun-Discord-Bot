@@ -91,7 +91,6 @@ FONT_STYLES = {
     },
 }
 
-
 SMALL_CAPS = {
     "a": "ᴀ", "b": "ʙ", "c": "ᴄ", "d": "ᴅ", "e": "ᴇ", "f": "ғ",
     "g": "ɢ", "h": "ʜ", "i": "ɪ", "j": "ᴊ", "k": "ᴋ", "l": "ʟ",
@@ -135,25 +134,40 @@ SUBSCRIPT = {
     "+": "₊", "-": "₋", "=": "₌", "(": "₍", ")": "₎",
 }
 
-UPSIDE_DOWN = str.maketrans(
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!?.,'\"()[]{}",
-    "ɐqɔpǝɟƃɥᴉɾʞʃɯuodbɹsʇnʌʍxʎz∀ᗺƆᗡƎℲפHIſꓘ˥WNOԀQᴚS⊥∩ΛMX⅄Z0ƖᄅƐㄣϛ9ㄥ86¡¿˙‘,„)(][}{"
-)
+UPSIDE_DOWN = str.maketrans({
+    "a": "ɐ", "b": "q", "c": "ɔ", "d": "p", "e": "ǝ", "f": "ɟ",
+    "g": "ƃ", "h": "ɥ", "i": "ᴉ", "j": "ɾ", "k": "ʞ", "l": "ʃ",
+    "m": "ɯ", "n": "u", "o": "o", "p": "d", "q": "b", "r": "ɹ",
+    "s": "s", "t": "ʇ", "u": "n", "v": "ʌ", "w": "ʍ", "x": "x",
+    "y": "ʎ", "z": "z",
+    "A": "∀", "B": "ᗺ", "C": "Ɔ", "D": "ᗡ", "E": "Ǝ", "F": "Ⅎ",
+    "G": "פ", "H": "H", "I": "I", "J": "ſ", "K": "ꓘ", "L": "˥",
+    "M": "W", "N": "N", "O": "O", "P": "Ԁ", "Q": "Q", "R": "ᴚ",
+    "S": "S", "T": "⊥", "U": "∩", "V": "Λ", "W": "M", "X": "X",
+    "Y": "⅄", "Z": "Z",
+    "0": "0", "1": "Ɩ", "2": "ᄅ", "3": "Ɛ", "4": "ㄣ", "5": "ϛ",
+    "6": "9", "7": "ㄥ", "8": "8", "9": "6",
+    "!": "¡", "?": "¿", ".": "˙", ",": "'", "'": ",", '"': "„",
+    "(": ")", ")": "(", "[": "]", "]": "[", "{": "}", "}": "{",
+})
 
-MIRROR = str.maketrans(
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
-    "ɒdɔbɘʇǫʜiꞁʞlmᴎoqɿꙅƚυvwxγzAᗺƆᗡƎꟻᎮHIႱꓘ⅃MИOꟼϘЯƧTUVWXYZ"
-)
+MIRROR = str.maketrans({
+    "a": "ɒ", "b": "d", "c": "ɔ", "d": "b", "e": "ɘ", "f": "ʇ",
+    "g": "ǫ", "h": "ʜ", "i": "i", "j": "ꞁ", "k": "ʞ", "l": "l",
+    "m": "m", "n": "ᴎ", "o": "o", "p": "q", "q": "p", "r": "ɿ",
+    "s": "ꙅ", "t": "ƚ", "u": "υ", "v": "v", "w": "w", "x": "x",
+    "y": "γ", "z": "z",
+    "A": "A", "B": "ᗺ", "C": "Ɔ", "D": "ᗡ", "E": "Ǝ", "F": "ꟻ",
+    "G": "Ꭾ", "H": "H", "I": "I", "J": "Ⴑ", "K": "ꓘ", "L": "⅃",
+    "M": "M", "N": "И", "O": "O", "P": "ꟼ", "Q": "Ϙ", "R": "Я",
+    "S": "Ƨ", "T": "T", "U": "U", "V": "V", "W": "W", "X": "X",
+    "Y": "Y", "Z": "Z",
+})
 
 LEET = str.maketrans({
-    "a": "4", "A": "4",
-    "e": "3", "E": "3",
-    "i": "1", "I": "1",
-    "o": "0", "O": "0",
-    "s": "5", "S": "5",
-    "t": "7", "T": "7",
-    "b": "8", "B": "8",
-    "g": "9", "G": "9",
+    "a": "4", "A": "4", "e": "3", "E": "3", "i": "1", "I": "1",
+    "o": "0", "O": "0", "s": "5", "S": "5", "t": "7", "T": "7",
+    "b": "8", "B": "8", "g": "9", "G": "9",
 })
 
 MORSE = {
@@ -165,7 +179,6 @@ MORSE = {
     "0": "-----", "1": ".----", "2": "..---", "3": "...--", "4": "....-",
     "5": ".....", "6": "-....", "7": "--...", "8": "---..", "9": "----.",
 }
-
 
 SPECIAL_STYLES = [
     "small_caps",
@@ -193,20 +206,15 @@ ALL_STYLE_NAMES = sorted(list(FONT_STYLES.keys()) + SPECIAL_STYLES)
 
 def make_translate_table(style_name: str) -> dict[int, str]:
     style = FONT_STYLES[style_name]
-
-    normal_upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    normal_lower = "abcdefghijklmnopqrstuvwxyz"
-    normal_digits = "0123456789"
-
     table = {}
 
-    for normal, fancy in zip(normal_upper, style["upper"]):
+    for normal, fancy in zip("ABCDEFGHIJKLMNOPQRSTUVWXYZ", style["upper"]):
         table[ord(normal)] = fancy
 
-    for normal, fancy in zip(normal_lower, style["lower"]):
+    for normal, fancy in zip("abcdefghijklmnopqrstuvwxyz", style["lower"]):
         table[ord(normal)] = fancy
 
-    for normal, fancy in zip(normal_digits, style["digits"]):
+    for normal, fancy in zip("0123456789", style["digits"]):
         table[ord(normal)] = fancy
 
     return table
@@ -295,14 +303,10 @@ def convert_font(text: str, style: str) -> str:
 
 async def font_autocomplete(
     interaction: discord.Interaction,
-    current: str
+    current: str,
 ) -> list[app_commands.Choice[str]]:
     current = current.lower()
-
-    matches = [
-        style for style in ALL_STYLE_NAMES
-        if current in style.lower()
-    ]
+    matches = [style for style in ALL_STYLE_NAMES if current in style.lower()]
 
     return [
         app_commands.Choice(name=style.replace("_", " ").title(), value=style)
@@ -314,26 +318,26 @@ class FontGroup(app_commands.Group):
     def __init__(self):
         super().__init__(
             name="font",
-            description="Convert text into fun Discord-safe Unicode styles."
+            description="Convert text into fun Discord-safe Unicode styles.",
         )
 
     @app_commands.command(name="list", description="View available font styles.")
     async def list_fonts(self, interaction: discord.Interaction):
-        style_text = "\n".join(
-            f"`{style}`"
-            for style in ALL_STYLE_NAMES
-        )
+        style_text = "\n".join(f"`{style}`" for style in ALL_STYLE_NAMES)
 
         embed = discord.Embed(
             title="Available Font Styles",
             description=style_text,
-            color=discord.Color.purple()
+            color=discord.Color.purple(),
         )
 
         embed.add_field(
             name="How to use",
-            value="`/font preview style:gothic text:Hello world`\n`/font say style:vaporwave text:Hello world`",
-            inline=False
+            value=(
+                "`/font preview style:gothic text:Hello world`\n"
+                "`/font say style:vaporwave text:Hello world`"
+            ),
+            inline=False,
         )
 
         embed.set_footer(
@@ -345,21 +349,21 @@ class FontGroup(app_commands.Group):
     @app_commands.command(name="preview", description="Preview text in a font style.")
     @app_commands.describe(
         style="Start typing a style name.",
-        text="The text you want to convert."
+        text="The text you want to convert.",
     )
     @app_commands.autocomplete(style=font_autocomplete)
     async def preview(
         self,
         interaction: discord.Interaction,
         style: str,
-        text: app_commands.Range[str, 1, 500]
+        text: app_commands.Range[str, 1, 500],
     ):
         style = style.lower().strip()
 
         if style not in ALL_STYLE_NAMES:
             await interaction.response.send_message(
-                f"That font style does not exist. Use `/font list` to see all styles.",
-                ephemeral=True
+                "That font style does not exist. Use `/font list` to see all styles.",
+                ephemeral=True,
             )
             return
 
@@ -367,9 +371,8 @@ class FontGroup(app_commands.Group):
 
         embed = discord.Embed(
             title=f"Font Preview: {style.replace('_', ' ').title()}",
-            color=discord.Color.purple()
+            color=discord.Color.purple(),
         )
-
         embed.add_field(name="Original", value=text, inline=False)
         embed.add_field(name="Converted", value=converted, inline=False)
 
@@ -378,34 +381,30 @@ class FontGroup(app_commands.Group):
     @app_commands.command(name="say", description="Send a message using a font style.")
     @app_commands.describe(
         style="Start typing a style name.",
-        text="The text you want Dei to send."
+        text="The text you want Dei to send.",
     )
     @app_commands.autocomplete(style=font_autocomplete)
     async def say(
         self,
         interaction: discord.Interaction,
         style: str,
-        text: app_commands.Range[str, 1, 1000]
+        text: app_commands.Range[str, 1, 1000],
     ):
         style = style.lower().strip()
 
         if style not in ALL_STYLE_NAMES:
             await interaction.response.send_message(
-                f"That font style does not exist. Use `/font list` to see all styles.",
-                ephemeral=True
+                "That font style does not exist. Use `/font list` to see all styles.",
+                ephemeral=True,
             )
             return
 
         converted = convert_font(text, style)
 
-        await interaction.response.send_message(
-            "Sent!",
-            ephemeral=True
-        )
-
+        await interaction.response.send_message("Sent!", ephemeral=True)
         await interaction.channel.send(
             converted,
-            allowed_mentions=discord.AllowedMentions.none()
+            allowed_mentions=discord.AllowedMentions.none(),
         )
 
 
@@ -418,7 +417,7 @@ class Fonts(commands.Cog):
     async def cog_unload(self):
         self.bot.tree.remove_command(
             self.font_group.name,
-            type=self.font_group.type
+            type=self.font_group.type,
         )
 
 
