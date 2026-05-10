@@ -28,8 +28,8 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     handlers=[
         logging.FileHandler(LOG_DIR / "bot.log", encoding="utf-8"),
-        logging.StreamHandler()
-    ]
+        logging.StreamHandler(),
+    ],
 )
 
 logger = logging.getLogger("centari")
@@ -60,7 +60,7 @@ class CentariBot(commands.Bot):
         super().__init__(
             command_prefix="!",
             intents=intents,
-            help_command=None
+            help_command=None,
         )
 
         self.db = Database("data/database.json")
@@ -107,7 +107,7 @@ class CentariBot(commands.Bot):
         await self.change_presence(
             activity=discord.Activity(
                 type=discord.ActivityType.watching,
-                name="over Centari Studios"
+                name="over Centari Studios",
             )
         )
 
