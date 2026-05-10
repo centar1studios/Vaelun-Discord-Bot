@@ -1,8 +1,15 @@
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
 import discord
 from discord import app_commands
 from discord.ext import commands
 
 from utils.embeds import success_embed, error_embed, info_embed
+
+
+BACKUP_DIR = Path("data/backups")
 
 
 class ConfigGroup(app_commands.Group):
@@ -12,62 +19,109 @@ class ConfigGroup(app_commands.Group):
 
     @app_commands.command(name="set-log-channel", description="Set the main logging channel.")
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def set_log_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+    async def set_log_channel(
+        self,
+        interaction: discord.Interaction,
+        channel: discord.TextChannel,
+    ):
         self.bot.db.update_setting(interaction.guild.id, "log_channel_id", channel.id)
-        await interaction.response.send_message(embed=success_embed(f"Log channel set to {channel.mention}."), ephemeral=True)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Log channel set to {channel.mention}."),
+            ephemeral=True,
+        )
 
     @app_commands.command(name="set-staff-role", description="Set the staff role.")
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def set_staff_role(self, interaction: discord.Interaction, role: discord.Role):
+    async def set_staff_role(
+        self,
+        interaction: discord.Interaction,
+        role: discord.Role,
+    ):
         self.bot.db.update_setting(interaction.guild.id, "staff_role_id", role.id)
-        await interaction.response.send_message(embed=success_embed(f"Staff role set to {role.mention}."), ephemeral=True)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Staff role set to {role.mention}."),
+            ephemeral=True,
+        )
 
     @app_commands.command(name="set-welcome-channel", description="Set the welcome channel.")
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def set_welcome_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+    async def set_welcome_channel(
+        self,
+        interaction: discord.Interaction,
+        channel: discord.TextChannel,
+    ):
         self.bot.db.update_setting(interaction.guild.id, "welcome_channel_id", channel.id)
-        await interaction.response.send_message(embed=success_embed(f"Welcome channel set to {channel.mention}."), ephemeral=True)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Welcome channel set to {channel.mention}."),
+            ephemeral=True,
+        )
 
     @app_commands.command(name="set-leave-channel", description="Set the leave channel.")
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def set_leave_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+    async def set_leave_channel(
+        self,
+        interaction: discord.Interaction,
+        channel: discord.TextChannel,
+    ):
         self.bot.db.update_setting(interaction.guild.id, "leave_channel_id", channel.id)
-        await interaction.response.send_message(embed=success_embed(f"Leave channel set to {channel.mention}."), ephemeral=True)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Leave channel set to {channel.mention}."),
+            ephemeral=True,
+        )
 
     @app_commands.command(name="set-verified-role", description="Set the verification role.")
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def set_verified_role(self, interaction: discord.Interaction, role: discord.Role):
+    async def set_verified_role(
+        self,
+        interaction: discord.Interaction,
+        role: discord.Role,
+    ):
         self.bot.db.update_setting(interaction.guild.id, "verified_role_id", role.id)
-        await interaction.response.send_message(embed=success_embed(f"Verified role set to {role.mention}."), ephemeral=True)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Verified role set to {role.mention}."),
+            ephemeral=True,
+        )
 
     @app_commands.command(name="view", description="View server configuration.")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def view(self, interaction: discord.Interaction):
         settings = self.bot.db.get_guild(interaction.guild.id)["settings"]
 
-        description = "\n".join([
-            f"**Staff Role:** {settings.get('staff_role_id')}",
-            f"**Log Channel:** {settings.get('log_channel_id')}",
-            f"**Ticket Category:** {settings.get('ticket_category_id')}",
-            f"**Transcript Channel:** {settings.get('transcript_channel_id')}",
-            f"**Welcome Channel:** {settings.get('welcome_channel_id')}",
-            f"**Leave Channel:** {settings.get('leave_channel_id')}",
-            f"**Verified Role:** {settings.get('verified_role_id')}",
-        ])
+        description = "\n".join(
+            [
+                f"**Staff Role:** {settings.get('staff_role_id')}",
+                f"**Log Channel:** {settings.get('log_channel_id')}",
+                f"**Ticket Category:** {settings.get('ticket_category_id')}",
+                f"**Transcript Channel:** {settings.get('transcript_channel_id')}",
+                f"**Welcome Channel:** {settings.get('welcome_channel_id')}",
+                f"**Leave Channel:** {settings.get('leave_channel_id')}",
+                f"**Verified Role:** {settings.get('verified_role_id')}",
+            ]
+        )
 
-        await interaction.response.send_message(embed=info_embed("Centari Config", description), ephemeral=True)
+        await interaction.response.send_message(
+            embed=info_embed("Centari Config", description),
+            ephemeral=True,
+        )
 
 
 class AdminTools(app_commands.Group):
     def __init__(self, bot: commands.Bot):
-        super().__init__(name="admin", description="Admin utilities, health, backups, and role restore.")
+        super().__init__(
+            name="admin",
+            description="Admin utilities, health, backups, and role restore.",
+        )
         self.bot = bot
 
     @app_commands.command(name="health", description="View a basic server health report.")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def health(self, interaction: discord.Interaction):
         guild = interaction.guild
-
         open_tickets = 0
         data = self.bot.db.load()
 
@@ -84,48 +138,92 @@ class AdminTools(app_commands.Group):
 **Boost Level:** {guild.premium_tier}
 """
 
-        await interaction.response.send_message(embed=info_embed("Server Health", description), ephemeral=True)
-
-    @app_commands.command(name="backup-create", description="Create a simple server backup snapshot.")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def backup_create(self, interaction: discord.Interaction):
-        guild = interaction.guild
-
-        snapshot = {
-            "name": guild.name,
-            "roles": [
-                {
-                    "name": role.name,
-                    "color": str(role.color),
-                    "permissions": role.permissions.value
-                }
-                for role in guild.roles
-                if not role.is_default()
-            ],
-            "channels": [
-                {
-                    "name": channel.name,
-                    "type": str(channel.type),
-                    "category": channel.category.name if getattr(channel, "category", None) else None
-                }
-                for channel in guild.channels
-            ]
-        }
-
-        backup_id = self.bot.db.create_backup(guild.id, snapshot)
-
         await interaction.response.send_message(
-            embed=success_embed(f"Backup created with ID `{backup_id}`. Restore code is intentionally not added yet because restore tools can be dangerous."),
-            ephemeral=True
+            embed=info_embed("Server Health", description),
+            ephemeral=True,
         )
+
+    @app_commands.command(name="backup", description="Create a server backup snapshot.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def backup(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            guild = interaction.guild
+            BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+
+            created_at = datetime.now(timezone.utc).isoformat()
+
+            snapshot = {
+                "guild_id": guild.id,
+                "name": guild.name,
+                "created_at": created_at,
+                "roles": [
+                    {
+                        "id": role.id,
+                        "name": role.name,
+                        "color": str(role.color),
+                        "permissions": role.permissions.value,
+                        "position": role.position,
+                        "mentionable": role.mentionable,
+                        "hoist": role.hoist,
+                    }
+                    for role in guild.roles
+                    if not role.is_default()
+                ],
+                "channels": [
+                    {
+                        "id": channel.id,
+                        "name": channel.name,
+                        "type": str(channel.type),
+                        "position": channel.position,
+                        "category": (
+                            channel.category.name
+                            if getattr(channel, "category", None)
+                            else None
+                        ),
+                    }
+                    for channel in guild.channels
+                ],
+            }
+
+            backup_id = self.bot.db.create_backup(guild.id, snapshot)
+
+            file_path = BACKUP_DIR / f"{guild.id}_backup_{backup_id}.json"
+
+            with open(file_path, "w", encoding="utf-8") as file:
+                json.dump(snapshot, file, indent=4)
+
+            await interaction.followup.send(
+                embed=success_embed(
+                    f"Backup created with ID `{backup_id}`.\n"
+                    f"Saved file: `{file_path}`\n\n"
+                    "Restore code is intentionally not added yet because restore tools can be dangerous."
+                ),
+                ephemeral=True,
+            )
+
+        except Exception as error:
+            await interaction.followup.send(
+                embed=error_embed(f"Backup failed: `{type(error).__name__}: {error}`"),
+                ephemeral=True,
+            )
+            raise
 
     @app_commands.command(name="restore-roles", description="Manually restore saved roles for a user.")
     @app_commands.checks.has_permissions(manage_roles=True)
-    async def restore_roles(self, interaction: discord.Interaction, member: discord.Member):
+    async def restore_roles(
+        self,
+        interaction: discord.Interaction,
+        member: discord.Member,
+    ):
         saved_role_ids = self.bot.db.get_saved_roles(interaction.guild.id, member.id)
 
         if not saved_role_ids:
-            await interaction.response.send_message(embed=error_embed("No saved roles found for that member."), ephemeral=True)
+            await interaction.response.send_message(
+                embed=error_embed("No saved roles found for that member."),
+                ephemeral=True,
+            )
             return
 
         restored = []
@@ -141,8 +239,10 @@ class AdminTools(app_commands.Group):
                     pass
 
         await interaction.response.send_message(
-            embed=success_embed(f"Restored roles: {', '.join(restored) if restored else 'None'}"),
-            ephemeral=True
+            embed=success_embed(
+                f"Restored roles: {', '.join(restored) if restored else 'None'}"
+            ),
+            ephemeral=True,
         )
 
 
