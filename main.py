@@ -95,6 +95,7 @@ class CentariBot(commands.Bot):
                 logger.info("Synced %s global command(s)", len(synced))
         except Exception:
             logger.exception("Slash command sync failed.")
+            raise
 
     async def on_ready(self):
         logger.info("----------------------------------------")
@@ -110,10 +111,6 @@ class CentariBot(commands.Bot):
                 name="over Centari Studios",
             )
         )
-
-    async def close(self):
-        self.db.save()
-        await super().close()
 
 
 async def main():
