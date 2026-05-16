@@ -5,6 +5,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from cogs.fonts import ALL_STYLE_NAMES, convert_font, font_autocomplete
 from utils.embeds import success_embed, error_embed, info_embed
 
 
@@ -64,16 +65,57 @@ def clean_optional_url(value: str | None) -> str | None:
     return value
 
 
+def clean_optional_font(value: str | None) -> str | None:
+    value = clean_optional_text(value)
+
+    if not value:
+        return None
+
+    value = value.lower().strip()
+
+    if value not in ALL_STYLE_NAMES:
+        return None
+
+    return value
+
+
+def apply_optional_font(text: str | None, font: str | None) -> str | None:
+    if not text:
+        return None
+
+    if not font:
+        return text
+
+    if font not in ALL_STYLE_NAMES:
+        return text
+
+    return convert_font(text, font)
+
+
 def build_custom_embed(template: dict) -> discord.Embed:
+    title = apply_optional_font(
+        template.get("title"),
+        template.get("title_font"),
+    )
+
+    description = apply_optional_font(
+        template.get("description"),
+        template.get("description_font"),
+    )
+
+    footer = apply_optional_font(
+        template.get("footer"),
+        template.get("footer_font"),
+    )
+
     embed = discord.Embed(
-        title=template.get("title") or None,
-        description=template.get("description") or None,
+        title=title or None,
+        description=description or None,
         color=hex_to_color(template.get("color", DEFAULT_COLOR)),
     )
 
     thumbnail_url = template.get("thumbnail_url")
     image_url = template.get("image_url")
-    footer = template.get("footer")
 
     if thumbnail_url:
         embed.set_thumbnail(url=thumbnail_url)
@@ -120,6 +162,23 @@ class CustomEmbeds(commands.Cog):
 
     @app_commands.command(name="embed-save", description="Save or update an embed template.")
     @app_commands.checks.has_permissions(manage_guild=True)
+    @app_commands.describe(
+        name="Template name.",
+        title="Embed title.",
+        description="Embed description.",
+        color="Hex color, like #9B7BFF.",
+        thumbnail_url="Optional thumbnail image URL.",
+        image_url="Optional large image URL.",
+        footer="Optional footer text.",
+        title_font="Optional font style for the title.",
+        description_font="Optional font style for the description.",
+        footer_font="Optional font style for the footer.",
+    )
+    @app_commands.autocomplete(
+        title_font=font_autocomplete,
+        description_font=font_autocomplete,
+        footer_font=font_autocomplete,
+    )
     async def embed_save(
         self,
         interaction: discord.Interaction,
@@ -130,6 +189,9 @@ class CustomEmbeds(commands.Cog):
         thumbnail_url: str | None = None,
         image_url: str | None = None,
         footer: str | None = None,
+        title_font: str | None = None,
+        description_font: str | None = None,
+        footer_font: str | None = None,
     ):
         name = name.strip()
 
@@ -153,6 +215,10 @@ class CustomEmbeds(commands.Cog):
         thumbnail_url = clean_optional_url(thumbnail_url)
         image_url = clean_optional_url(image_url)
         color = normalize_hex_color(color)
+
+        title_font = clean_optional_font(title_font)
+        description_font = clean_optional_font(description_font)
+        footer_font = clean_optional_font(footer_font)
 
         if not title and not description and not image_url:
             await interaction.response.send_message(
@@ -182,6 +248,27 @@ class CustomEmbeds(commands.Cog):
             )
             return
 
+        if title_font and not title:
+            await interaction.response.send_message(
+                embed=error_embed("A title font was provided, but there is no title."),
+                ephemeral=True,
+            )
+            return
+
+        if description_font and not description:
+            await interaction.response.send_message(
+                embed=error_embed("A description font was provided, but there is no description."),
+                ephemeral=True,
+            )
+            return
+
+        if footer_font and not footer:
+            await interaction.response.send_message(
+                embed=error_embed("A footer font was provided, but there is no footer."),
+                ephemeral=True,
+            )
+            return
+
         templates = self.get_templates(interaction.guild.id)
         now = datetime.now(timezone.utc).isoformat()
 
@@ -192,46 +279,56 @@ class CustomEmbeds(commands.Cog):
                 existing = item
                 break
 
+        template_data = {
+            "name": name,
+            "title": title,
+            "description": description,
+            "color": color,
+            "thumbnail_url": thumbnail_url,
+            "image_url": image_url,
+            "footer": footer,
+            "title_font": title_font,
+            "description_font": description_font,
+            "footer_font": footer_font,
+            "enabled": True,
+            "updated_at": now,
+            "updated_by": interaction.user.id,
+        }
+
         if existing:
-            existing.update(
-                {
-                    "name": name,
-                    "title": title,
-                    "description": description,
-                    "color": color,
-                    "thumbnail_url": thumbnail_url,
-                    "image_url": image_url,
-                    "footer": footer,
-                    "enabled": True,
-                    "updated_at": now,
-                    "updated_by": interaction.user.id,
-                }
-            )
+            existing.update(template_data)
             action = "updated"
         else:
-            templates.append(
+            template_data.update(
                 {
                     "id": str(uuid.uuid4())[:8],
-                    "name": name,
-                    "title": title,
-                    "description": description,
-                    "color": color,
-                    "thumbnail_url": thumbnail_url,
-                    "image_url": image_url,
-                    "footer": footer,
-                    "enabled": True,
                     "created_at": now,
                     "created_by": interaction.user.id,
-                    "updated_at": now,
-                    "updated_by": interaction.user.id,
                 }
             )
+            templates.append(template_data)
             action = "saved"
 
         self.save_templates(interaction.guild.id, templates)
 
+        font_lines = []
+
+        if title_font:
+            font_lines.append(f"Title font: `{title_font}`")
+
+        if description_font:
+            font_lines.append(f"Description font: `{description_font}`")
+
+        if footer_font:
+            font_lines.append(f"Footer font: `{footer_font}`")
+
+        font_text = ""
+
+        if font_lines:
+            font_text = "\n" + "\n".join(font_lines)
+
         await interaction.response.send_message(
-            embed=success_embed(f"Embed template `{name}` {action}."),
+            embed=success_embed(f"Embed template `{name}` {action}.{font_text}"),
             ephemeral=True,
         )
 
@@ -269,10 +366,27 @@ class CustomEmbeds(commands.Cog):
         lines = []
 
         for item in templates[:20]:
+            font_bits = []
+
+            if item.get("title_font"):
+                font_bits.append(f"title `{item.get('title_font')}`")
+
+            if item.get("description_font"):
+                font_bits.append(f"description `{item.get('description_font')}`")
+
+            if item.get("footer_font"):
+                font_bits.append(f"footer `{item.get('footer_font')}`")
+
+            font_text = "None"
+
+            if font_bits:
+                font_text = ", ".join(font_bits)
+
             lines.append(
                 f"**{item.get('name', 'Untitled')}**\n"
                 f"ID: `{item.get('id')}`\n"
-                f"Title: `{item.get('title') or 'No title'}`"
+                f"Title: `{item.get('title') or 'No title'}`\n"
+                f"Fonts: {font_text}"
             )
 
         await interaction.response.send_message(
