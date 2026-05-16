@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import xml.etree.ElementTree as ET
 from typing import Optional
 
@@ -16,7 +17,8 @@ logger = logging.getLogger("centari.social")
 YOUTUBE_FEED_URL = "https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
 DEFAULT_CHECK_MINUTES = 10
 
-KEY_RE_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789_-"
+KEY_RE = re.compile(r"^[a-z0-9_-]{2,32}$")
+YOUTUBE_CHANNEL_ID_RE = re.compile(r"^UC[a-zA-Z0-9_-]{20,30}$")
 
 
 def clean_key(key: str) -> str:
@@ -24,10 +26,52 @@ def clean_key(key: str) -> str:
 
 
 def valid_key(key: str) -> bool:
-    if not 2 <= len(key) <= 32:
-        return False
+    return bool(KEY_RE.match(key))
 
-    return all(char in KEY_RE_CHARS for char in key)
+
+def clean_youtube_channel_id(value: str) -> str:
+    return value.strip()
+
+
+def validate_youtube_channel_id(value: str) -> tuple[bool, str]:
+    value = clean_youtube_channel_id(value)
+
+    if not value:
+        return False, "YouTube channel ID cannot be empty."
+
+    if value.startswith("@"):
+        return (
+            False,
+            "That looks like a YouTube handle. I need the channel ID that starts with `UC`.",
+        )
+
+    if "youtube.com/@" in value:
+        return (
+            False,
+            "That looks like a YouTube handle URL. Open the page source and search `channelId`, then copy the `UC...` value.",
+        )
+
+    if "youtube.com/channel/" in value:
+        possible_id = value.rstrip("/").split("/channel/")[-1].split("/")[0]
+
+        if YOUTUBE_CHANNEL_ID_RE.match(possible_id):
+            return True, possible_id
+
+        return (
+            False,
+            "That channel URL has a channel ID, but it does not look valid. It should start with `UC`.",
+        )
+
+    if not value.startswith("UC"):
+        return False, "YouTube channel IDs usually start with `UC`."
+
+    if not YOUTUBE_CHANNEL_ID_RE.match(value):
+        return (
+            False,
+            "That does not look like a valid YouTube channel ID. It should start with `UC` and be around 24 characters long.",
+        )
+
+    return True, value
 
 
 def get_social_config(guild_data: dict) -> dict:
@@ -118,6 +162,17 @@ class SocialYoutubeGroup(app_commands.Group):
             )
             return
 
+        is_valid_id, cleaned_or_error = validate_youtube_channel_id(youtube_channel_id)
+
+        if not is_valid_id:
+            await interaction.response.send_message(
+                embed=error_embed(cleaned_or_error),
+                ephemeral=True,
+            )
+            return
+
+        youtube_channel_id = cleaned_or_error
+
         permissions = discord_channel.permissions_for(interaction.guild.me)
 
         if not permissions.view_channel:
@@ -153,7 +208,7 @@ class SocialYoutubeGroup(app_commands.Group):
         if latest_video is None:
             await interaction.followup.send(
                 embed=error_embed(
-                    "I could not read that YouTube RSS feed. Double-check that the channel ID starts with `UC`."
+                    "I could not read that YouTube RSS feed. The ID format looks okay, but YouTube did not return a usable feed."
                 ),
                 ephemeral=True,
             )
@@ -173,7 +228,7 @@ class SocialYoutubeGroup(app_commands.Group):
             "key": key,
             "enabled": True,
             "discord_channel_id": discord_channel.id,
-            "youtube_channel_id": youtube_channel_id.strip(),
+            "youtube_channel_id": youtube_channel_id,
             "youtube_name": youtube_name.strip(),
             "last_video_id": latest_video["video_id"],
             "mention_role_id": mention_role.id if mention_role else None,
@@ -191,6 +246,7 @@ class SocialYoutubeGroup(app_commands.Group):
             embed=success_embed(
                 f"YouTube notifications added for `{key}`.\n"
                 f"YouTube: **{youtube_name}**\n"
+                f"YouTube Channel ID: `{youtube_channel_id}`\n"
                 f"Discord Channel: {discord_channel.mention}\n"
                 f"Mention Role: {mention_text}\n"
                 f"Seeded latest video so old uploads will not spam the channel."
@@ -322,6 +378,220 @@ class SocialYoutubeGroup(app_commands.Group):
             ephemeral=True,
         )
 
+    @app_commands.command(name="set-channel", description="Change where a YouTube notification posts.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def set_channel(
+        self,
+        interaction: discord.Interaction,
+        key: str,
+        discord_channel: discord.TextChannel,
+    ):
+        key = clean_key(key)
+
+        permissions = discord_channel.permissions_for(interaction.guild.me)
+
+        if not permissions.view_channel:
+            await interaction.response.send_message(
+                embed=error_embed("I do not have permission to view that Discord channel."),
+                ephemeral=True,
+            )
+            return
+
+        if not permissions.send_messages:
+            await interaction.response.send_message(
+                embed=error_embed("I do not have permission to send messages in that Discord channel."),
+                ephemeral=True,
+            )
+            return
+
+        if not permissions.embed_links:
+            await interaction.response.send_message(
+                embed=error_embed("I need `Embed Links` in that Discord channel."),
+                ephemeral=True,
+            )
+            return
+
+        guild_data = self.bot.db.get_guild(interaction.guild.id)
+        youtube_configs = get_youtube_configs(guild_data)
+        config = youtube_configs.get(key)
+
+        if not config:
+            await interaction.response.send_message(
+                embed=error_embed("I could not find a YouTube notification with that key."),
+                ephemeral=True,
+            )
+            return
+
+        config["discord_channel_id"] = discord_channel.id
+        config["updated_by"] = interaction.user.id
+        config["updated_at"] = discord.utils.utcnow().isoformat()
+
+        youtube_configs[key] = config
+        guild_data["social_notifications"]["youtube"] = youtube_configs
+        self.bot.db.update_guild(interaction.guild.id, guild_data)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"YouTube notification `{key}` will now post in {discord_channel.mention}."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="set-role", description="Set the role pinged by a YouTube notification.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def set_role(
+        self,
+        interaction: discord.Interaction,
+        key: str,
+        mention_role: discord.Role,
+    ):
+        key = clean_key(key)
+        guild_data = self.bot.db.get_guild(interaction.guild.id)
+        youtube_configs = get_youtube_configs(guild_data)
+        config = youtube_configs.get(key)
+
+        if not config:
+            await interaction.response.send_message(
+                embed=error_embed("I could not find a YouTube notification with that key."),
+                ephemeral=True,
+            )
+            return
+
+        config["mention_role_id"] = mention_role.id
+        config["updated_by"] = interaction.user.id
+        config["updated_at"] = discord.utils.utcnow().isoformat()
+
+        youtube_configs[key] = config
+        guild_data["social_notifications"]["youtube"] = youtube_configs
+        self.bot.db.update_guild(interaction.guild.id, guild_data)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"YouTube notification `{key}` will now ping {mention_role.mention}."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="clear-role", description="Remove the role ping from a YouTube notification.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def clear_role(self, interaction: discord.Interaction, key: str):
+        key = clean_key(key)
+        guild_data = self.bot.db.get_guild(interaction.guild.id)
+        youtube_configs = get_youtube_configs(guild_data)
+        config = youtube_configs.get(key)
+
+        if not config:
+            await interaction.response.send_message(
+                embed=error_embed("I could not find a YouTube notification with that key."),
+                ephemeral=True,
+            )
+            return
+
+        config["mention_role_id"] = None
+        config["updated_by"] = interaction.user.id
+        config["updated_at"] = discord.utils.utcnow().isoformat()
+
+        youtube_configs[key] = config
+        guild_data["social_notifications"]["youtube"] = youtube_configs
+        self.bot.db.update_guild(interaction.guild.id, guild_data)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"YouTube notification `{key}` will no longer ping a role."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="set-name", description="Change the display name for a YouTube notification.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def set_name(
+        self,
+        interaction: discord.Interaction,
+        key: str,
+        youtube_name: str,
+    ):
+        key = clean_key(key)
+        youtube_name = youtube_name.strip()
+
+        if not youtube_name:
+            await interaction.response.send_message(
+                embed=error_embed("YouTube display name cannot be empty."),
+                ephemeral=True,
+            )
+            return
+
+        guild_data = self.bot.db.get_guild(interaction.guild.id)
+        youtube_configs = get_youtube_configs(guild_data)
+        config = youtube_configs.get(key)
+
+        if not config:
+            await interaction.response.send_message(
+                embed=error_embed("I could not find a YouTube notification with that key."),
+                ephemeral=True,
+            )
+            return
+
+        config["youtube_name"] = youtube_name
+        config["updated_by"] = interaction.user.id
+        config["updated_at"] = discord.utils.utcnow().isoformat()
+
+        youtube_configs[key] = config
+        guild_data["social_notifications"]["youtube"] = youtube_configs
+        self.bot.db.update_guild(interaction.guild.id, guild_data)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"YouTube notification `{key}` display name set to **{youtube_name}**."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="refresh-latest", description="Save the newest YouTube video without posting it.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def refresh_latest(self, interaction: discord.Interaction, key: str):
+        key = clean_key(key)
+        guild_data = self.bot.db.get_guild(interaction.guild.id)
+        youtube_configs = get_youtube_configs(guild_data)
+        config = youtube_configs.get(key)
+
+        if not config:
+            await interaction.response.send_message(
+                embed=error_embed("I could not find a YouTube notification with that key."),
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        cog = self.bot.get_cog("Social")
+
+        if not cog:
+            await interaction.followup.send(
+                embed=error_embed("Social cog is not loaded."),
+                ephemeral=True,
+            )
+            return
+
+        video = await cog.fetch_latest_youtube_video(config.get("youtube_channel_id"))
+
+        if not video:
+            await interaction.followup.send(
+                embed=error_embed("I could not fetch the latest video for that YouTube channel."),
+                ephemeral=True,
+            )
+            return
+
+        old_video_id = config.get("last_video_id")
+        config["last_video_id"] = video["video_id"]
+        config["updated_by"] = interaction.user.id
+        config["updated_at"] = discord.utils.utcnow().isoformat()
+
+        youtube_configs[key] = config
+        guild_data["social_notifications"]["youtube"] = youtube_configs
+        self.bot.db.update_guild(interaction.guild.id, guild_data)
+
+        await interaction.followup.send(
+            embed=success_embed(
+                f"YouTube notification `{key}` refreshed.\n"
+                f"Old Last Video ID: `{old_video_id}`\n"
+                f"New Last Video ID: `{video['video_id']}`\n"
+                f"Latest Video: [{video['title']}]({video['url']})"
+            ),
+            ephemeral=True,
+        )
+
     @app_commands.command(name="test", description="Send a test YouTube notification.")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def test(self, interaction: discord.Interaction, key: str):
@@ -404,10 +674,14 @@ class SocialYoutubeGroup(app_commands.Group):
             ephemeral=True,
         )
 
-    @add.autocomplete("key")
     @remove.autocomplete("key")
     @enable.autocomplete("key")
     @disable.autocomplete("key")
+    @set_channel.autocomplete("key")
+    @set_role.autocomplete("key")
+    @clear_role.autocomplete("key")
+    @set_name.autocomplete("key")
+    @refresh_latest.autocomplete("key")
     @test.autocomplete("key")
     async def youtube_key_autocomplete(
         self,
