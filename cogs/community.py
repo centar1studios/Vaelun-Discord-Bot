@@ -9,6 +9,71 @@ from discord.ext import commands
 from utils.embeds import success_embed, error_embed, info_embed
 
 
+def get_level_role_map(bot: commands.Bot, guild_id: int) -> dict:
+    guild_data = bot.db.get_guild(guild_id)
+    leveling = guild_data.setdefault("leveling", {})
+    level_roles = leveling.setdefault("level_roles", {})
+
+    if not isinstance(level_roles, dict):
+        level_roles = {}
+        leveling["level_roles"] = level_roles
+        bot.db.update_guild(guild_id, guild_data)
+
+    return level_roles
+
+
+def save_level_role_map(bot: commands.Bot, guild_id: int, level_roles: dict):
+    guild_data = bot.db.get_guild(guild_id)
+    leveling = guild_data.setdefault("leveling", {})
+    leveling["level_roles"] = level_roles
+    bot.db.update_guild(guild_id, guild_data)
+
+
+async def apply_level_roles(bot: commands.Bot, member: discord.Member, level: int) -> list[discord.Role]:
+    if not member.guild:
+        return []
+
+    guild = member.guild
+    level_roles = get_level_role_map(bot, guild.id)
+
+    if not level_roles:
+        return []
+
+    me = guild.me
+
+    if not me or not me.guild_permissions.manage_roles:
+        return []
+
+    added_roles = []
+
+    for role_id, required_level in level_roles.items():
+        try:
+            required_level = int(required_level)
+            role = guild.get_role(int(role_id))
+        except (TypeError, ValueError):
+            continue
+
+        if role is None:
+            continue
+
+        if level < required_level:
+            continue
+
+        if role in member.roles:
+            continue
+
+        if role >= me.top_role:
+            continue
+
+        try:
+            await member.add_roles(role, reason=f"Reached level {level}")
+            added_roles.append(role)
+        except (discord.Forbidden, discord.HTTPException):
+            continue
+
+    return added_roles
+
+
 class RoleButton(discord.ui.View):
     def __init__(self, role_id: int):
         super().__init__(timeout=None)
@@ -196,12 +261,18 @@ class LevelGroup(app_commands.Group):
 
         new_xp = old_xp + amount
         new_data = self._set_level_data(interaction.guild.id, member.id, new_xp)
+        added_roles = await apply_level_roles(self.bot, member, new_data["level"])
+
+        role_text = ""
+        if added_roles:
+            role_text = "\n**Roles added:** " + ", ".join(role.mention for role in added_roles)
 
         await interaction.response.send_message(
             embed=success_embed(
                 f"Added **{amount} XP** to {member.mention}.\n"
                 f"**XP:** {old_xp} → {new_data['xp']}\n"
                 f"**Level:** {old_level} → {new_data['level']}"
+                f"{role_text}"
             ),
             ephemeral=True,
         )
@@ -267,12 +338,18 @@ class LevelGroup(app_commands.Group):
         old_level = int(old_data.get("level", 1))
 
         new_data = self._set_level_data(interaction.guild.id, member.id, amount)
+        added_roles = await apply_level_roles(self.bot, member, new_data["level"])
+
+        role_text = ""
+        if added_roles:
+            role_text = "\n**Roles added:** " + ", ".join(role.mention for role in added_roles)
 
         await interaction.response.send_message(
             embed=success_embed(
                 f"Set {member.mention}'s XP.\n"
                 f"**XP:** {old_xp} → {new_data['xp']}\n"
                 f"**Level:** {old_level} → {new_data['level']}"
+                f"{role_text}"
             ),
             ephemeral=True,
         )
@@ -286,6 +363,107 @@ class LevelGroup(app_commands.Group):
             old_level=old_level,
             new_level=new_data["level"],
             reason=reason,
+        )
+
+
+class LevelRoleGroup(app_commands.Group):
+    def __init__(self, bot: commands.Bot):
+        super().__init__(name="level-role", description="Configure automatic level roles.")
+        self.bot = bot
+
+    @app_commands.command(name="add", description="Give a role when members reach a level.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def add(
+        self,
+        interaction: discord.Interaction,
+        role: discord.Role,
+        level: app_commands.Range[int, 1, 100000],
+    ):
+        me = interaction.guild.me
+
+        if role >= interaction.user.top_role and interaction.guild.owner_id != interaction.user.id:
+            await interaction.response.send_message(
+                embed=error_embed("You cannot configure a level role equal to or higher than your highest role."),
+                ephemeral=True,
+            )
+            return
+
+        if me and role >= me.top_role:
+            await interaction.response.send_message(
+                embed=error_embed("I cannot give that role because it is equal to or higher than my highest role."),
+                ephemeral=True,
+            )
+            return
+
+        level_roles = get_level_role_map(self.bot, interaction.guild.id)
+        level_roles[str(role.id)] = int(level)
+        save_level_role_map(self.bot, interaction.guild.id, level_roles)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"{role.mention} will now be given at **Level {level}**."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="remove", description="Remove a level role rule.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def remove(self, interaction: discord.Interaction, role: discord.Role):
+        level_roles = get_level_role_map(self.bot, interaction.guild.id)
+
+        if str(role.id) not in level_roles:
+            await interaction.response.send_message(
+                embed=error_embed("That role is not configured as a level role."),
+                ephemeral=True,
+            )
+            return
+
+        old_level = level_roles.pop(str(role.id))
+        save_level_role_map(self.bot, interaction.guild.id, level_roles)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Removed {role.mention} from level role rewards. It was set to Level {old_level}."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="list", description="List configured level roles.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def list_roles(self, interaction: discord.Interaction):
+        level_roles = get_level_role_map(self.bot, interaction.guild.id)
+
+        if not level_roles:
+            await interaction.response.send_message(
+                embed=info_embed("Level Roles", "No level roles are configured yet."),
+                ephemeral=True,
+            )
+            return
+
+        rows = []
+
+        sorted_items = sorted(
+            level_roles.items(),
+            key=lambda item: int(item[1]),
+        )
+
+        for role_id, required_level in sorted_items:
+            role = interaction.guild.get_role(int(role_id))
+
+            if role:
+                rows.append(f"**Level {required_level}:** {role.mention}")
+            else:
+                rows.append(f"**Level {required_level}:** Missing role `{role_id}`")
+
+        await interaction.response.send_message(
+            embed=info_embed("Level Roles", "\n".join(rows)),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="clear", description="Clear all configured level roles.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def clear(self, interaction: discord.Interaction):
+        save_level_role_map(self.bot, interaction.guild.id, {})
+
+        await interaction.response.send_message(
+            embed=success_embed("All level role rules have been cleared."),
+            ephemeral=True,
         )
 
 
@@ -644,6 +822,7 @@ class Community(commands.Cog):
         self.bot.tree.add_command(RolesGroup(bot))
         self.bot.tree.add_command(EconomyGroup(bot))
         self.bot.tree.add_command(LevelGroup(bot))
+        self.bot.tree.add_command(LevelRoleGroup(bot))
         self.bot.tree.add_command(EightBallAnswersGroup(bot))
         self.bot.tree.add_command(CommunityGroup(bot))
         self.bot.tree.add_command(ResourceGroup(bot))
@@ -653,7 +832,7 @@ class Community(commands.Cog):
 
         self.level_cooldowns = {}
 
-    async def _send_level_up_message(self, message: discord.Message, level_data: dict):
+    async def _send_level_up_message(self, message: discord.Message, level_data: dict, added_roles: list[discord.Role] | None = None):
         channel_id = self.bot.db.get_setting(message.guild.id, "level_up_channel_id")
         target_channel = None
 
@@ -670,9 +849,13 @@ class Community(commands.Cog):
         if target_channel is None:
             target_channel = message.channel
 
+        role_text = ""
+        if added_roles:
+            role_text = "\nNew role unlocked: " + ", ".join(role.mention for role in added_roles)
+
         try:
             await target_channel.send(
-                f"{message.author.mention} leveled up to **Level {level_data['level']}**!"
+                f"{message.author.mention} leveled up to **Level {level_data['level']}**!{role_text}"
             )
         except discord.Forbidden:
             pass
@@ -703,7 +886,8 @@ class Community(commands.Cog):
         level_data, leveled_up = self.bot.db.add_xp(message.guild.id, message.author.id, amount)
 
         if leveled_up:
-            await self._send_level_up_message(message, level_data)
+            added_roles = await apply_level_roles(self.bot, message.author, level_data["level"])
+            await self._send_level_up_message(message, level_data, added_roles)
 
 
 async def setup(bot: commands.Bot):
