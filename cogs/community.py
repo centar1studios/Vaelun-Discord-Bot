@@ -82,6 +82,76 @@ class LevelGroup(app_commands.Group):
         super().__init__(name="level", description="Leveling commands.")
         self.bot = bot
 
+    def _calculate_level(self, xp: int) -> int:
+        return max(1, xp // 100 + 1)
+
+    def _set_level_data(self, guild_id: int, user_id: int, xp: int):
+        data = self.bot.db.load()
+        gid = str(guild_id)
+        uid = str(user_id)
+
+        data["levels"].setdefault(gid, {})
+        existing = data["levels"][gid].get(uid, {})
+
+        xp = max(0, int(xp))
+        level = self._calculate_level(xp)
+
+        data["levels"][gid][uid] = {
+            "xp": xp,
+            "level": level,
+            "last_message": existing.get("last_message", 0),
+        }
+
+        self.bot.db.save(data)
+        return data["levels"][gid][uid]
+
+    async def _send_xp_log(
+        self,
+        interaction: discord.Interaction,
+        action: str,
+        member: discord.Member,
+        old_xp: int,
+        new_xp: int,
+        old_level: int,
+        new_level: int,
+        reason: str | None = None,
+    ):
+        channel_id = self.bot.db.get_setting(interaction.guild.id, "log_channel_id")
+
+        if not channel_id:
+            return
+
+        try:
+            channel = interaction.guild.get_channel(int(channel_id))
+
+            if channel is None:
+                channel = await interaction.guild.fetch_channel(int(channel_id))
+
+            embed = discord.Embed(
+                title="XP Updated",
+                color=discord.Color.purple(),
+                timestamp=discord.utils.utcnow(),
+            )
+
+            embed.add_field(name="Action", value=action, inline=True)
+            embed.add_field(name="Member", value=f"{member.mention}\n`{member.id}`", inline=True)
+            embed.add_field(name="Moderator", value=f"{interaction.user.mention}\n`{interaction.user.id}`", inline=True)
+            embed.add_field(name="Old XP", value=str(old_xp), inline=True)
+            embed.add_field(name="New XP", value=str(new_xp), inline=True)
+            embed.add_field(name="XP Change", value=str(new_xp - old_xp), inline=True)
+            embed.add_field(name="Old Level", value=str(old_level), inline=True)
+            embed.add_field(name="New Level", value=str(new_level), inline=True)
+
+            if reason:
+                embed.add_field(name="Reason", value=reason[:1024], inline=False)
+
+            embed.set_footer(text="Centari Studios Leveling")
+
+            await channel.send(embed=embed)
+
+        except (discord.Forbidden, discord.NotFound, discord.HTTPException, ValueError):
+            pass
+
     @app_commands.command(name="rank", description="View your level.")
     async def rank(self, interaction: discord.Interaction, member: discord.Member | None = None):
         member = member or interaction.user
@@ -89,6 +159,113 @@ class LevelGroup(app_commands.Group):
 
         await interaction.response.send_message(
             embed=info_embed("Rank", f"{member.mention}\n**Level:** {level['level']}\n**XP:** {level['xp']}")
+        )
+
+    @app_commands.command(name="add-xp", description="Add XP to a member.")
+    @app_commands.checks.has_permissions(moderate_members=True)
+    async def add_xp(
+        self,
+        interaction: discord.Interaction,
+        member: discord.Member,
+        amount: app_commands.Range[int, 1, 1000000],
+        reason: str | None = None,
+    ):
+        old_data = self.bot.db.get_level(interaction.guild.id, member.id)
+        old_xp = int(old_data.get("xp", 0))
+        old_level = int(old_data.get("level", 1))
+
+        new_xp = old_xp + amount
+        new_data = self._set_level_data(interaction.guild.id, member.id, new_xp)
+
+        await interaction.response.send_message(
+            embed=success_embed(
+                f"Added **{amount} XP** to {member.mention}.\n"
+                f"**XP:** {old_xp} → {new_data['xp']}\n"
+                f"**Level:** {old_level} → {new_data['level']}"
+            ),
+            ephemeral=True,
+        )
+
+        await self._send_xp_log(
+            interaction=interaction,
+            action="Add XP",
+            member=member,
+            old_xp=old_xp,
+            new_xp=new_data["xp"],
+            old_level=old_level,
+            new_level=new_data["level"],
+            reason=reason,
+        )
+
+    @app_commands.command(name="remove-xp", description="Remove XP from a member.")
+    @app_commands.checks.has_permissions(moderate_members=True)
+    async def remove_xp(
+        self,
+        interaction: discord.Interaction,
+        member: discord.Member,
+        amount: app_commands.Range[int, 1, 1000000],
+        reason: str | None = None,
+    ):
+        old_data = self.bot.db.get_level(interaction.guild.id, member.id)
+        old_xp = int(old_data.get("xp", 0))
+        old_level = int(old_data.get("level", 1))
+
+        new_xp = max(0, old_xp - amount)
+        new_data = self._set_level_data(interaction.guild.id, member.id, new_xp)
+
+        await interaction.response.send_message(
+            embed=success_embed(
+                f"Removed **{amount} XP** from {member.mention}.\n"
+                f"**XP:** {old_xp} → {new_data['xp']}\n"
+                f"**Level:** {old_level} → {new_data['level']}"
+            ),
+            ephemeral=True,
+        )
+
+        await self._send_xp_log(
+            interaction=interaction,
+            action="Remove XP",
+            member=member,
+            old_xp=old_xp,
+            new_xp=new_data["xp"],
+            old_level=old_level,
+            new_level=new_data["level"],
+            reason=reason,
+        )
+
+    @app_commands.command(name="set-xp", description="Set a member's XP.")
+    @app_commands.checks.has_permissions(moderate_members=True)
+    async def set_xp(
+        self,
+        interaction: discord.Interaction,
+        member: discord.Member,
+        amount: app_commands.Range[int, 0, 10000000],
+        reason: str | None = None,
+    ):
+        old_data = self.bot.db.get_level(interaction.guild.id, member.id)
+        old_xp = int(old_data.get("xp", 0))
+        old_level = int(old_data.get("level", 1))
+
+        new_data = self._set_level_data(interaction.guild.id, member.id, amount)
+
+        await interaction.response.send_message(
+            embed=success_embed(
+                f"Set {member.mention}'s XP.\n"
+                f"**XP:** {old_xp} → {new_data['xp']}\n"
+                f"**Level:** {old_level} → {new_data['level']}"
+            ),
+            ephemeral=True,
+        )
+
+        await self._send_xp_log(
+            interaction=interaction,
+            action="Set XP",
+            member=member,
+            old_xp=old_xp,
+            new_xp=new_data["xp"],
+            old_level=old_level,
+            new_level=new_data["level"],
+            reason=reason,
         )
 
 
@@ -435,7 +612,7 @@ class StudyGroup(app_commands.Group):
     @app_commands.command(name="deadline", description="Save a deadline reminder note.")
     async def deadline(self, interaction: discord.Interaction, title: str, due: str):
         await interaction.response.send_message(
-            embed=success_embed(f"Deadline saved: **{title}** due **{due}**."),
+            embed=success_embed(f"Deadline saved: **{title}** due **{due}."),
             ephemeral=True,
         )
 
