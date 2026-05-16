@@ -849,19 +849,19 @@ class Starboard(commands.Cog):
         guild = self.bot.get_guild(payload.guild_id)
 
         if not guild:
-            logger.info("Starboard skipped: guild not found for payload guild_id=%s", payload.guild_id)
+            logger.debug("Starboard skipped: guild not found for payload guild_id=%s", payload.guild_id)
             return
 
         guild_data = self.bot.db.get_guild(guild.id)
         starboards = get_starboards_config(guild_data)
 
         if not starboards:
-            logger.info("Starboard skipped: no starboards configured in guild %s", guild.id)
+            logger.debug("Starboard skipped: no starboards configured in guild %s", guild.id)
             return
 
         reacted_emoji_key = payload_emoji_key(payload.emoji)
 
-        logger.info(
+        logger.debug(
             "Starboard reaction event: guild=%s channel=%s message=%s emoji=%s key=%s",
             guild.id,
             payload.channel_id,
@@ -878,33 +878,33 @@ class Starboard(commands.Cog):
         ]
 
         if not matching_boards:
-            logger.info("Starboard skipped: no enabled board matched emoji key=%s", reacted_emoji_key)
+            logger.debug("Starboard skipped: no enabled board matched emoji key=%s", reacted_emoji_key)
             return
 
         source_channel = await fetch_source_channel(guild, payload.channel_id)
 
         if not source_channel:
-            logger.info("Starboard skipped: source channel/thread not found or inaccessible")
+            logger.debug("Starboard skipped: source channel/thread not found or inaccessible")
             return
 
         if not bot_can_read_source(source_channel, guild.me):
-            logger.info("Starboard skipped: missing source read permissions")
+            logger.warning("Starboard skipped: missing source read permissions")
             return
 
         try:
             message = await source_channel.fetch_message(payload.message_id)
         except discord.Forbidden:
-            logger.info("Starboard skipped: forbidden fetching source message")
+            logger.warning("Starboard skipped: forbidden fetching source message")
             return
         except discord.NotFound:
-            logger.info("Starboard skipped: source message not found")
+            logger.debug("Starboard skipped: source message not found")
             return
         except discord.HTTPException as error:
-            logger.info("Starboard skipped: HTTP error fetching source message: %s", error)
+            logger.warning("Starboard skipped: HTTP error fetching source message: %s", error)
             return
 
         if message.author.bot:
-            logger.info("Starboard skipped: source message is from a bot/webhook")
+            logger.debug("Starboard skipped: source message is from a bot/webhook")
             return
 
         updated_any = False
@@ -913,25 +913,25 @@ class Starboard(commands.Cog):
             starboard_channel = await fetch_text_channel(guild, board.get("channel_id"))
 
             if not starboard_channel:
-                logger.info("Starboard `%s` skipped: starboard channel missing/inaccessible", key)
+                logger.warning("Starboard `%s` skipped: starboard channel missing/inaccessible", key)
                 continue
 
             if payload.channel_id == starboard_channel.id:
-                logger.info("Starboard `%s` skipped: reaction happened inside starboard channel", key)
+                logger.debug("Starboard `%s` skipped: reaction happened inside starboard channel", key)
                 continue
 
             permissions = starboard_channel.permissions_for(guild.me)
 
             if not permissions.view_channel:
-                logger.info("Starboard `%s` skipped: missing View Channel", key)
+                logger.warning("Starboard `%s` skipped: missing View Channel", key)
                 continue
 
             if not permissions.send_messages:
-                logger.info("Starboard `%s` skipped: missing Send Messages", key)
+                logger.warning("Starboard `%s` skipped: missing Send Messages", key)
                 continue
 
             if not permissions.embed_links:
-                logger.info("Starboard `%s` skipped: missing Embed Links", key)
+                logger.warning("Starboard `%s` skipped: missing Embed Links", key)
                 continue
 
             emoji_key = str(board.get("emoji_key", DEFAULT_EMOJI))
@@ -943,7 +943,7 @@ class Starboard(commands.Cog):
             for reaction in message.reactions:
                 current_key = reaction_emoji_key(reaction)
 
-                logger.info(
+                logger.debug(
                     "Starboard `%s`: reaction on message emoji=%s key=%s count=%s",
                     key,
                     str(reaction.emoji),
@@ -955,7 +955,7 @@ class Starboard(commands.Cog):
                     reaction_count = reaction.count
                     break
 
-            logger.info(
+            logger.debug(
                 "Starboard `%s`: reaction_count=%s threshold=%s",
                 key,
                 reaction_count,
@@ -971,6 +971,7 @@ class Starboard(commands.Cog):
                     try:
                         existing = await starboard_channel.fetch_message(int(existing_starboard_id))
                         await existing.delete()
+                        logger.info("Starboard `%s`: removed post because reaction count fell below threshold", key)
                     except (discord.Forbidden, discord.NotFound, discord.HTTPException, ValueError, TypeError):
                         pass
 
@@ -997,7 +998,7 @@ class Starboard(commands.Cog):
                         embed=embed,
                         allowed_mentions=discord.AllowedMentions.none(),
                     )
-                    logger.info("Starboard `%s`: updated existing starboard post", key)
+                    logger.debug("Starboard `%s`: updated existing starboard post", key)
                     continue
                 except (discord.Forbidden, discord.NotFound, discord.HTTPException, ValueError, TypeError):
                     messages.pop(message_key, None)
@@ -1009,10 +1010,10 @@ class Starboard(commands.Cog):
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
             except discord.Forbidden:
-                logger.info("Starboard `%s` skipped: forbidden sending starboard post", key)
+                logger.warning("Starboard `%s` skipped: forbidden sending starboard post", key)
                 continue
             except discord.HTTPException as error:
-                logger.info("Starboard `%s` skipped: HTTP error sending post: %s", key, error)
+                logger.warning("Starboard `%s` skipped: HTTP error sending post: %s", key, error)
                 continue
 
             messages[message_key] = sent.id
