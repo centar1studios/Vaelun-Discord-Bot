@@ -52,7 +52,10 @@ class WelcomeGroup(app_commands.Group):
         guild_data["welcome"]["enabled"] = True
         self.bot.db.update_guild(interaction.guild.id, guild_data)
 
-        await interaction.response.send_message(embed=success_embed("Welcome messages enabled."), ephemeral=True)
+        await interaction.response.send_message(
+            embed=success_embed("Welcome messages enabled."),
+            ephemeral=True,
+        )
 
     @app_commands.command(name="disable", description="Disable welcome messages.")
     @app_commands.checks.has_permissions(manage_guild=True)
@@ -61,7 +64,10 @@ class WelcomeGroup(app_commands.Group):
         guild_data["welcome"]["enabled"] = False
         self.bot.db.update_guild(interaction.guild.id, guild_data)
 
-        await interaction.response.send_message(embed=success_embed("Welcome messages disabled."), ephemeral=True)
+        await interaction.response.send_message(
+            embed=success_embed("Welcome messages disabled."),
+            ephemeral=True,
+        )
 
     @app_commands.command(name="message", description="Set welcome message. Use {user} and {server}.")
     @app_commands.checks.has_permissions(manage_guild=True)
@@ -70,7 +76,10 @@ class WelcomeGroup(app_commands.Group):
         guild_data["welcome"]["message"] = message
         self.bot.db.update_guild(interaction.guild.id, guild_data)
 
-        await interaction.response.send_message(embed=success_embed("Welcome message updated."), ephemeral=True)
+        await interaction.response.send_message(
+            embed=success_embed("Welcome message updated."),
+            ephemeral=True,
+        )
 
     @app_commands.command(name="test", description="Test the welcome message.")
     @app_commands.checks.has_permissions(manage_guild=True)
@@ -92,7 +101,11 @@ class LeaveGroup(app_commands.Group):
         guild_data = self.bot.db.get_guild(interaction.guild.id)
         guild_data["leave"]["enabled"] = True
         self.bot.db.update_guild(interaction.guild.id, guild_data)
-        await interaction.response.send_message(embed=success_embed("Leave messages enabled."), ephemeral=True)
+
+        await interaction.response.send_message(
+            embed=success_embed("Leave messages enabled."),
+            ephemeral=True,
+        )
 
     @app_commands.command(name="disable", description="Disable leave messages.")
     @app_commands.checks.has_permissions(manage_guild=True)
@@ -100,7 +113,11 @@ class LeaveGroup(app_commands.Group):
         guild_data = self.bot.db.get_guild(interaction.guild.id)
         guild_data["leave"]["enabled"] = False
         self.bot.db.update_guild(interaction.guild.id, guild_data)
-        await interaction.response.send_message(embed=success_embed("Leave messages disabled."), ephemeral=True)
+
+        await interaction.response.send_message(
+            embed=success_embed("Leave messages disabled."),
+            ephemeral=True,
+        )
 
     @app_commands.command(name="message", description="Set leave message. Use {user} and {server}.")
     @app_commands.checks.has_permissions(manage_guild=True)
@@ -108,7 +125,57 @@ class LeaveGroup(app_commands.Group):
         guild_data = self.bot.db.get_guild(interaction.guild.id)
         guild_data["leave"]["message"] = message
         self.bot.db.update_guild(interaction.guild.id, guild_data)
-        await interaction.response.send_message(embed=success_embed("Leave message updated."), ephemeral=True)
+
+        await interaction.response.send_message(
+            embed=success_embed("Leave message updated."),
+            ephemeral=True,
+        )
+
+
+class BanLogGroup(app_commands.Group):
+    def __init__(self, bot: commands.Bot):
+        super().__init__(name="ban-log", description="Ban log channel tools.")
+        self.bot = bot
+
+    @app_commands.command(name="channel", description="Set the ban log channel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        self.bot.db.update_setting(interaction.guild.id, "ban_log_channel_id", channel.id)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Ban log channel set to {channel.mention}."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="clear", description="Clear the ban log channel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def clear(self, interaction: discord.Interaction):
+        self.bot.db.update_setting(interaction.guild.id, "ban_log_channel_id", None)
+
+        await interaction.response.send_message(
+            embed=success_embed(
+                "Ban log channel cleared. Ban logs will fall back to the general log channel if one is configured."
+            ),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="show", description="Show the current ban log channel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def show(self, interaction: discord.Interaction):
+        channel_id = self.bot.db.get_setting(interaction.guild.id, "ban_log_channel_id")
+        channel = await fetch_text_channel(interaction.guild, channel_id)
+
+        if not channel:
+            await interaction.response.send_message(
+                embed=info_embed("Ban Log Channel", "No dedicated ban log channel is configured."),
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            embed=info_embed("Ban Log Channel", f"Ban logs are currently sent to {channel.mention}."),
+            ephemeral=True,
+        )
 
 
 class TestGroup(app_commands.Group):
@@ -207,7 +274,7 @@ class TestGroup(app_commands.Group):
 
         embed = info_embed(
             "Member Banned",
-            f"{interaction.user} was banned from the server.\n\nThis is a test message. No one was actually banned."
+            f"{interaction.user} was banned from the server.\n\nThis is a test message. No one was actually banned.",
         )
 
         try:
@@ -276,7 +343,10 @@ class VerificationGroup(app_commands.Group):
         guild_data["verification"]["message"] = message
         self.bot.db.update_guild(interaction.guild.id, guild_data)
 
-        await interaction.response.send_message(embed=success_embed("Verification message updated."), ephemeral=True)
+        await interaction.response.send_message(
+            embed=success_embed("Verification message updated."),
+            ephemeral=True,
+        )
 
 
 class Welcome(commands.Cog):
@@ -284,6 +354,7 @@ class Welcome(commands.Cog):
         self.bot = bot
         self.bot.tree.add_command(WelcomeGroup(bot))
         self.bot.tree.add_command(LeaveGroup(bot))
+        self.bot.tree.add_command(BanLogGroup(bot))
         self.bot.tree.add_command(TestGroup(bot))
         self.bot.tree.add_command(VerificationGroup(bot))
 
@@ -353,11 +424,17 @@ class Welcome(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_ban(self, guild: discord.Guild, user: discord.User):
-        channel_id = self.bot.db.get_setting(guild.id, "ban_log_channel_id") or self.bot.db.get_setting(guild.id, "log_channel_id")
+        channel_id = (
+            self.bot.db.get_setting(guild.id, "ban_log_channel_id")
+            or self.bot.db.get_setting(guild.id, "log_channel_id")
+        )
+
         channel = await fetch_text_channel(guild, channel_id)
 
         if channel:
-            await channel.send(embed=info_embed("Member Banned", f"{user} was banned from the server."))
+            await channel.send(
+                embed=info_embed("Member Banned", f"{user} was banned from the server.")
+            )
 
 
 async def setup(bot: commands.Bot):
