@@ -45,6 +45,7 @@ EXTENSIONS = [
     "cogs.custom_embeds",
     "cogs.fonts",
     "cogs.help",
+    "cogs.inactivity_ping",
     "cogs.moderation",
     "cogs.persona",
     "cogs.reaction_roles",
