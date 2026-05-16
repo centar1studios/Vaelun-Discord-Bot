@@ -49,6 +49,7 @@ EXTENSIONS = [
     "cogs.moderation",
     "cogs.persona",
     "cogs.reaction_roles",
+    "cogs.social",
     "cogs.status",
     "cogs.starboard",
     "cogs.sticky",
