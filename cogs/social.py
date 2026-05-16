@@ -9,9 +9,12 @@ import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
+from dotenv import load_dotenv
 
 from utils.embeds import success_embed, error_embed, info_embed
 
+
+load_dotenv()
 
 logger = logging.getLogger("centari.social")
 
