@@ -17,20 +17,10 @@ HELP_SECTIONS = {
             ("`/config view`", "View server configuration."),
         ],
     },
-    "fonts": {
-        "label": "Fonts",
-        "emoji": "🔤",
-        "description": "Convert messages into fancy Discord-safe Unicode styles.",
-        "commands": [
-            ("`/font list`", "View all available font styles."),
-            ("`/font preview`", "Preview text in a selected style."),
-            ("`/font say`", "Make Dei send styled text."),
-        ],
-    },
     "moderation": {
         "label": "Moderation",
         "emoji": "🛡️",
-        "description": "Tools for keeping the server clean and controlled.",
+        "description": "Warnings, bans, timeouts, and channel controls.",
         "commands": [
             ("`/ban`", "Ban a member."),
             ("`/kick`", "Kick a member."),
@@ -45,13 +35,103 @@ HELP_SECTIONS = {
     "tickets": {
         "label": "Tickets",
         "emoji": "🎫",
-        "description": "Support ticket setup and management.",
+        "description": "Support tickets, ticket panels, and ticket types.",
         "commands": [
-            ("`/ticket setup`", "Send a ticket panel."),
-            ("`/ticket config`", "Configure ticket settings."),
+            ("`/ticket setup`", "Send a fresh ticket panel."),
+            ("`/ticket config`", "Set staff role, category, and transcript channel."),
+            ("`/ticket panel-config`", "Edit ticket panel title, description, color, or footer."),
+            ("`/ticket panel-reset`", "Reset ticket panel settings."),
+            ("`/ticket type-list`", "List ticket dropdown types."),
+            ("`/ticket type-add`", "Add or update a ticket type."),
+            ("`/ticket type-remove`", "Remove a ticket type."),
             ("`/ticket close`", "Close the current ticket."),
             ("`/ticket add`", "Add a user to a ticket."),
             ("`/ticket remove`", "Remove a user from a ticket."),
+        ],
+    },
+    "embeds": {
+        "label": "Embeds",
+        "emoji": "🧩",
+        "description": "Create, preview, save, and send embed templates.",
+        "commands": [
+            ("`/embed-save`", "Save or update an embed template."),
+            ("`/embed-list`", "List saved embed templates."),
+            ("`/embed-preview`", "Preview a saved embed privately."),
+            ("`/embed-send`", "Send a saved embed to a channel."),
+            ("`/embed-delete`", "Disable a saved embed template."),
+            ("`/embed-restore`", "Restore a disabled embed template."),
+        ],
+    },
+    "confessions": {
+        "label": "Confessions",
+        "emoji": "🕯️",
+        "description": "Anonymous confessions with staff approval and anonymous replies.",
+        "commands": [
+            ("`/confession config`", "Set review/public channels and reply settings."),
+            ("`/confession view-config`", "View confession configuration."),
+            ("`/confession submit`", "Submit an anonymous confession for staff review."),
+            ("Approve button", "Staff approves a confession and posts it anonymously."),
+            ("Deny button", "Staff denies a confession privately."),
+            ("Reply Anonymously button", "Creates a thread and posts anonymous replies."),
+        ],
+    },
+    "staffmail": {
+        "label": "Staffmail",
+        "emoji": "📬",
+        "description": "Private anonymous reports/messages sent only to staff.",
+        "commands": [
+            ("`/staffmail config`", "Set the staffmail review channel."),
+            ("`/staffmail submit`", "Send a private anonymous message/report to staff."),
+            ("`link:` option", "Attach a Discord message link or outside link."),
+            ("`attachment:` option", "Attach an image, screenshot, or file."),
+        ],
+    },
+    "community": {
+        "label": "Community",
+        "emoji": "🌟",
+        "description": "Fun, engagement, levels, roles, and economy.",
+        "commands": [
+            ("`/community poll`", "Create a yes/no poll."),
+            ("`/community 8ball`", "Ask the magic 8-ball."),
+            ("`/community quote`", "Save a quote."),
+            ("`/community passport`", "View a member profile."),
+            ("`/roles button`", "Create a role button panel."),
+            ("`/level rank`", "View a member level."),
+            ("`/economy balance`", "View balance."),
+            ("`/economy daily`", "Claim daily coins."),
+        ],
+    },
+    "eightball": {
+        "label": "8-ball Answers",
+        "emoji": "🎱",
+        "description": "Manage this server's custom 8-ball answers.",
+        "commands": [
+            ("`/8ball-answer list`", "List custom 8-ball answers."),
+            ("`/8ball-answer add`", "Add a new 8-ball answer."),
+            ("`/8ball-answer remove`", "Remove an 8-ball answer."),
+            ("`/8ball-answer reset`", "Reset answers back to defaults."),
+        ],
+    },
+    "resources": {
+        "label": "Resources",
+        "emoji": "📚",
+        "description": "Resources, suggestions, and study tools.",
+        "commands": [
+            ("`/resource add`", "Add a resource or FAQ entry."),
+            ("`/resource search`", "Search resources."),
+            ("`/suggest submit`", "Submit a suggestion."),
+            ("`/study pomodoro`", "Start a Pomodoro timer."),
+            ("`/study deadline`", "Save a deadline reminder note."),
+        ],
+    },
+    "fonts": {
+        "label": "Fonts",
+        "emoji": "🔤",
+        "description": "Convert messages into Discord-safe Unicode styles.",
+        "commands": [
+            ("`/font list`", "View all available font styles."),
+            ("`/font preview`", "Preview text in a selected style."),
+            ("`/font say`", "Make Dei send styled text."),
         ],
     },
     "persona": {
@@ -96,34 +176,6 @@ HELP_SECTIONS = {
             ("`/verification message`", "Set verification message."),
         ],
     },
-    "community": {
-        "label": "Community",
-        "emoji": "🌟",
-        "description": "Fun, engagement, levels, roles, and economy.",
-        "commands": [
-            ("`/community poll`", "Create a yes/no poll."),
-            ("`/community 8ball`", "Ask the magic 8ball."),
-            ("`/community quote`", "Save a quote."),
-            ("`/community passport`", "View a member profile."),
-            ("`/roles button`", "Create a role button panel."),
-            ("`/level rank`", "View a member level."),
-            ("`/economy balance`", "View balance."),
-            ("`/economy daily`", "Claim daily coins."),
-        ],
-    },
-    "resources": {
-        "label": "Resources",
-        "emoji": "📚",
-        "description": "Resources, suggestions, mailbox, and study tools.",
-        "commands": [
-            ("`/resource add`", "Add a resource or FAQ entry."),
-            ("`/resource search`", "Search resources."),
-            ("`/suggest submit`", "Submit a suggestion."),
-            ("`/mailbox submit`", "Send an anonymous message to staff."),
-            ("`/study pomodoro`", "Start a Pomodoro timer."),
-            ("`/study deadline`", "Save a deadline reminder note."),
-        ],
-    },
     "admin": {
         "label": "Admin",
         "emoji": "⚙️",
@@ -145,15 +197,16 @@ def build_home_embed(persona: dict) -> discord.Embed:
     embed = persona_embed(
         persona,
         "Centari Studios Help",
-        "Pick a category from the dropdown below. Cleaner than a command landfill.",
+        "Pick a category from the dropdown below.",
     )
 
     embed.add_field(
         name="Quick Start",
         value=(
-            "`/help` • Open this menu\n"
-            "`/font list` • View font styles\n"
-            "`/ticket setup` • Create ticket panel\n"
+            "`/ticket setup` • Create a ticket panel\n"
+            "`/embed-save` • Save an embed template\n"
+            "`/confession config` • Set up anonymous confessions\n"
+            "`/staffmail config` • Set up private staffmail\n"
             "`/config view` • View server settings"
         ),
         inline=False,
@@ -163,6 +216,9 @@ def build_home_embed(persona: dict) -> discord.Embed:
         f"{section['emoji']} **{section['label']}** — {section['description']}"
         for section in HELP_SECTIONS.values()
     )
+
+    if len(category_list) > 3800:
+        category_list = category_list[:3800] + "\n..."
 
     embed.add_field(
         name="Categories",
@@ -187,6 +243,9 @@ def build_section_embed(persona: dict, section_key: str) -> discord.Embed:
         f"{command} — {description}"
         for command, description in section["commands"]
     )
+
+    if len(command_text) > 3800:
+        command_text = command_text[:3800] + "\n..."
 
     embed.add_field(
         name="Commands",
@@ -214,7 +273,7 @@ class HelpSelect(discord.ui.Select):
         for key, section in HELP_SECTIONS.items():
             options.append(
                 discord.SelectOption(
-                    label=section["label"],
+                    label=section["label"][:100],
                     value=key,
                     description=section["description"][:100],
                     emoji=section["emoji"],
@@ -225,7 +284,7 @@ class HelpSelect(discord.ui.Select):
             placeholder="Choose a help category...",
             min_values=1,
             max_values=1,
-            options=options,
+            options=options[:25],
         )
 
     async def callback(self, interaction: discord.Interaction):

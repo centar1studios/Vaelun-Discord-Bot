@@ -64,7 +64,7 @@ class EconomyGroup(app_commands.Group):
         if now - money.get("last_daily", 0) < 86400:
             await interaction.response.send_message(
                 embed=error_embed("You already claimed your daily reward."),
-                ephemeral=True
+                ephemeral=True,
             )
             return
 
@@ -92,6 +92,81 @@ class LevelGroup(app_commands.Group):
         )
 
 
+class EightBallAnswersGroup(app_commands.Group):
+    def __init__(self, bot: commands.Bot):
+        super().__init__(name="8ball-answer", description="Manage custom 8-ball answers.")
+        self.bot = bot
+
+    @app_commands.command(name="add", description="Add a custom 8-ball answer.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def add(self, interaction: discord.Interaction, answer: str):
+        if len(answer.strip()) > 200:
+            await interaction.response.send_message(
+                embed=error_embed("Please keep 8-ball answers under 200 characters."),
+                ephemeral=True,
+            )
+            return
+
+        added = self.bot.db.add_eight_ball_answer(interaction.guild.id, answer)
+
+        if not added:
+            await interaction.response.send_message(
+                embed=error_embed("That answer is empty or already exists."),
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Added 8-ball answer:\n`{answer.strip()}`"),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="remove", description="Remove a custom 8-ball answer.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def remove(self, interaction: discord.Interaction, answer: str):
+        removed = self.bot.db.remove_eight_ball_answer(interaction.guild.id, answer)
+
+        if not removed:
+            await interaction.response.send_message(
+                embed=error_embed("I could not find that 8-ball answer."),
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Removed 8-ball answer:\n`{answer.strip()}`"),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="list", description="List this server's 8-ball answers.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def list_answers(self, interaction: discord.Interaction):
+        answers = self.bot.db.get_eight_ball_answers(interaction.guild.id)
+
+        text = ""
+
+        for index, answer in enumerate(answers, start=1):
+            text += f"**{index}.** {answer}\n"
+
+        if len(text) > 3500:
+            text = text[:3500] + "\n..."
+
+        await interaction.response.send_message(
+            embed=info_embed("8-ball Answers", text),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="reset", description="Reset 8-ball answers back to defaults.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def reset(self, interaction: discord.Interaction):
+        self.bot.db.reset_eight_ball_answers(interaction.guild.id)
+
+        await interaction.response.send_message(
+            embed=success_embed("8-ball answers reset to defaults."),
+            ephemeral=True,
+        )
+
+
 class CommunityGroup(app_commands.Group):
     def __init__(self, bot: commands.Bot):
         super().__init__(name="community", description="Fun and community commands.")
@@ -106,18 +181,13 @@ class CommunityGroup(app_commands.Group):
         await message.add_reaction("✅")
         await message.add_reaction("❌")
 
-    @app_commands.command(name="8ball", description="Ask the magic 8ball.")
+    @app_commands.command(name="8ball", description="Ask the magic 8-ball.")
     async def eight_ball(self, interaction: discord.Interaction, question: str):
-        answers = [
-            "Yes.",
-            "No.",
-            "Maybe.",
-            "Ask again later.",
-            "The goblin council says absolutely.",
-            "The stars are being weird about this one."
-        ]
+        answers = self.bot.db.get_eight_ball_answers(interaction.guild.id)
 
-        await interaction.response.send_message(embed=info_embed("8ball", random.choice(answers)))
+        await interaction.response.send_message(
+            embed=info_embed("8-ball", random.choice(answers))
+        )
 
     @app_commands.command(name="quote", description="Save a quote.")
     async def quote(self, interaction: discord.Interaction, quote: str):
@@ -155,7 +225,7 @@ class ResourceGroup(app_commands.Group):
 
         await interaction.response.send_message(
             embed=success_embed(f"Resource added with ID `{resource_id}`."),
-            ephemeral=True
+            ephemeral=True,
         )
 
     @app_commands.command(name="search", description="Search resources.")
@@ -165,7 +235,7 @@ class ResourceGroup(app_commands.Group):
         if not results:
             await interaction.response.send_message(
                 embed=error_embed("No resources found."),
-                ephemeral=True
+                ephemeral=True,
             )
             return
 
@@ -203,35 +273,140 @@ class SuggestionsGroup(app_commands.Group):
 
         await interaction.response.send_message(
             embed=success_embed(f"Suggestion submitted with ID `{suggestion_id}`."),
-            ephemeral=True
+            ephemeral=True,
         )
 
 
-class MailboxGroup(app_commands.Group):
+class StaffMailGroup(app_commands.Group):
     def __init__(self, bot: commands.Bot):
-        super().__init__(name="mailbox", description="Anonymous mailbox.")
+        super().__init__(name="staffmail", description="Anonymous private messages to staff.")
         self.bot = bot
 
-    @app_commands.command(name="submit", description="Submit an anonymous message to staff.")
-    async def submit(self, interaction: discord.Interaction, message: str):
+    @app_commands.command(name="config", description="Set the staffmail review channel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def config(self, interaction: discord.Interaction, review_channel: discord.TextChannel):
+        self.bot.db.update_setting(interaction.guild.id, "mailbox_review_channel_id", review_channel.id)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Staffmail review channel set to {review_channel.mention}."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="submit", description="Send an anonymous private message/report to staff.")
+    async def submit(
+        self,
+        interaction: discord.Interaction,
+        message: str,
+        link: str | None = None,
+        attachment: discord.Attachment | None = None,
+    ):
         channel_id = self.bot.db.get_setting(interaction.guild.id, "mailbox_review_channel_id")
         channel = interaction.guild.get_channel(int(channel_id)) if channel_id else None
 
         if not channel:
             await interaction.response.send_message(
-                embed=error_embed("No mailbox review channel has been configured."),
-                ephemeral=True
+                embed=error_embed("No staffmail review channel has been configured."),
+                ephemeral=True,
             )
             return
 
-        embed = info_embed("Anonymous Mailbox Submission", message)
-        embed.set_footer(text=f"Submitted by user ID {interaction.user.id}")
+        message = message.strip()
+        link = link.strip() if link else None
 
-        await channel.send(embed=embed)
+        if not message:
+            await interaction.response.send_message(
+                embed=error_embed("Staffmail message cannot be empty."),
+                ephemeral=True,
+            )
+            return
+
+        if len(message) > 1800:
+            await interaction.response.send_message(
+                embed=error_embed("Please keep staffmail messages under 1800 characters."),
+                ephemeral=True,
+            )
+            return
+
+        if link and len(link) > 1000:
+            await interaction.response.send_message(
+                embed=error_embed("Please keep links under 1000 characters."),
+                ephemeral=True,
+            )
+            return
+
+        embed = discord.Embed(
+            title="Anonymous Staffmail",
+            description=message,
+            color=discord.Color.purple(),
+        )
+
+        embed.add_field(
+            name="Submitted By",
+            value=f"{interaction.user.mention}\n`{interaction.user.id}`",
+            inline=False,
+        )
+
+        if link:
+            embed.add_field(
+                name="Reported Link / Message Link",
+                value=link,
+                inline=False,
+            )
+
+            if "discord.com/channels/" in link or "discordapp.com/channels/" in link:
+                embed.add_field(
+                    name="Link Type",
+                    value="Discord message link",
+                    inline=True,
+                )
+            else:
+                embed.add_field(
+                    name="Link Type",
+                    value="External or general link",
+                    inline=True,
+                )
+
+        file_to_send = None
+
+        if attachment:
+            embed.add_field(
+                name="Attachment",
+                value=f"[{attachment.filename}]({attachment.url})",
+                inline=False,
+            )
+
+            if attachment.content_type and attachment.content_type.startswith("image/"):
+                embed.set_image(url=attachment.url)
+
+            try:
+                file_to_send = await attachment.to_file()
+            except discord.HTTPException:
+                file_to_send = None
+
+        embed.set_footer(text="Private staff message. Public users cannot see this.")
+
+        try:
+            if file_to_send:
+                await channel.send(embed=embed, file=file_to_send)
+            else:
+                await channel.send(embed=embed)
+
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                embed=error_embed("I do not have permission to send in the staffmail review channel."),
+                ephemeral=True,
+            )
+            return
+        except discord.HTTPException as error:
+            await interaction.response.send_message(
+                embed=error_embed(f"Discord rejected the staffmail message: `{error}`"),
+                ephemeral=True,
+            )
+            return
 
         await interaction.response.send_message(
-            embed=success_embed("Your anonymous message was sent to staff."),
-            ephemeral=True
+            embed=success_embed("Your anonymous message/report was sent to staff."),
+            ephemeral=True,
         )
 
 
@@ -245,7 +420,7 @@ class StudyGroup(app_commands.Group):
         await interaction.response.send_message(
             embed=info_embed(
                 "Pomodoro Started",
-                f"{interaction.user.mention}, focus for **{minutes} minute(s)**. I will remind you here."
+                f"{interaction.user.mention}, focus for **{minutes} minute(s)**. I will remind you here.",
             )
         )
 
@@ -261,7 +436,7 @@ class StudyGroup(app_commands.Group):
     async def deadline(self, interaction: discord.Interaction, title: str, due: str):
         await interaction.response.send_message(
             embed=success_embed(f"Deadline saved: **{title}** due **{due}**."),
-            ephemeral=True
+            ephemeral=True,
         )
 
 
@@ -272,10 +447,11 @@ class Community(commands.Cog):
         self.bot.tree.add_command(RolesGroup(bot))
         self.bot.tree.add_command(EconomyGroup(bot))
         self.bot.tree.add_command(LevelGroup(bot))
+        self.bot.tree.add_command(EightBallAnswersGroup(bot))
         self.bot.tree.add_command(CommunityGroup(bot))
         self.bot.tree.add_command(ResourceGroup(bot))
         self.bot.tree.add_command(SuggestionsGroup(bot))
-        self.bot.tree.add_command(MailboxGroup(bot))
+        self.bot.tree.add_command(StaffMailGroup(bot))
         self.bot.tree.add_command(StudyGroup(bot))
 
         self.level_cooldowns = {}
