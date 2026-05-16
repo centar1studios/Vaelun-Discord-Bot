@@ -47,6 +47,7 @@ EXTENSIONS = [
     "cogs.persona",
     "cogs.reaction_roles",
     "cogs.status",
+    "cogs.starboard",
     "cogs.sticky",
     "cogs.tickets",
     "cogs.welcome",
