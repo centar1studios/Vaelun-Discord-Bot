@@ -111,6 +111,35 @@ LEET = str.maketrans({
     "t": "7", "T": "7",
 })
 
+CENZHA_SYMBOLS = str.maketrans({
+    "a": "⊹", "A": "⊹",
+    "b": "ツ", "B": "ツ",
+    "c": "ɞ", "C": "ɞ",
+    "d": "⤷", "D": "⤷",
+    "e": "~", "E": "~",
+    "f": "*", "F": "*",
+    "g": "-", "G": "-",
+    "h": "•", "H": "•",
+    "i": "^", "I": "^",
+    "j": "δ", "J": "δ",
+    "k": "8", "K": "8",
+    "l": "Y", "L": "Y",
+    "m": "£", "M": "£",
+    "n": "≥", "N": "≥",
+    "o": "Θ", "O": "Θ",
+    "p": "╥", "P": "╥",
+    "q": "φ", "Q": "φ",
+    "r": "☼", "R": "☼",
+    "s": "↓", "S": "↓",
+    "t": "▭", "T": "▭",
+    "u": "⇃", "U": "⇃",
+    "v": "❀", "V": "❀",
+    "w": "⇴", "W": "⇴",
+    "x": "⚘", "X": "⚘",
+    "y": "〤", "Y": "〤",
+    "z": "৻", "Z": "৻",
+})
+
 SPECIAL_STYLES = [
     "small_caps",
     "vaporwave",
@@ -124,6 +153,7 @@ SPECIAL_STYLES = [
     "spaced",
     "clap",
     "leet",
+    "cenzha",
 ]
 
 ALL_STYLE_NAMES = sorted(list(FONT_STYLES.keys()) + SPECIAL_STYLES)
@@ -160,6 +190,7 @@ def convert_font(text: str, style: str) -> str:
 
     if style == "vaporwave":
         converted = []
+
         for char in text:
             if char == " ":
                 converted.append("　")
@@ -167,6 +198,7 @@ def convert_font(text: str, style: str) -> str:
                 converted.append(chr(ord(char) + 0xFEE0))
             else:
                 converted.append(char)
+
         return "".join(converted)
 
     if style == "superscript":
@@ -198,6 +230,9 @@ def convert_font(text: str, style: str) -> str:
 
     if style == "leet":
         return text.translate(LEET)
+
+    if style == "cenzha":
+        return text.translate(CENZHA_SYMBOLS)
 
     return text
 
@@ -231,6 +266,81 @@ class Fonts(commands.Cog):
         description="Convert text into fun Discord-safe Unicode styles.",
     )
 
+    async def send_font_log(
+        self,
+        interaction: discord.Interaction,
+        style: str,
+        original_text: str,
+        converted_text: str,
+    ):
+        if not interaction.guild:
+            return
+
+        channel_id = self.bot.db.get_setting(interaction.guild.id, "log_channel_id")
+
+        if not channel_id:
+            return
+
+        try:
+            log_channel = interaction.guild.get_channel(int(channel_id))
+
+            if log_channel is None:
+                log_channel = await interaction.guild.fetch_channel(int(channel_id))
+
+            if not isinstance(log_channel, discord.TextChannel):
+                return
+
+            source_channel = interaction.channel.mention if interaction.channel else "Unknown"
+
+            embed = discord.Embed(
+                title="Font Say Used",
+                color=discord.Color.purple(),
+                timestamp=discord.utils.utcnow(),
+            )
+
+            embed.add_field(
+                name="User",
+                value=f"{interaction.user.mention}\n`{interaction.user.id}`",
+                inline=True,
+            )
+            embed.add_field(
+                name="Channel",
+                value=source_channel,
+                inline=True,
+            )
+            embed.add_field(
+                name="Style",
+                value=f"`{style}`",
+                inline=True,
+            )
+
+            original_preview = original_text
+            converted_preview = converted_text
+
+            if len(original_preview) > 1000:
+                original_preview = original_preview[:1000] + "\n..."
+
+            if len(converted_preview) > 1000:
+                converted_preview = converted_preview[:1000] + "\n..."
+
+            embed.add_field(
+                name="Original Text",
+                value=original_preview or "None",
+                inline=False,
+            )
+            embed.add_field(
+                name="Converted Text",
+                value=converted_preview or "None",
+                inline=False,
+            )
+
+            embed.set_footer(text="Centari Studios Font Logging")
+
+            await log_channel.send(embed=embed)
+
+        except (discord.Forbidden, discord.NotFound, discord.HTTPException, ValueError, TypeError):
+            return
+
     @font_group.command(name="list", description="View available font styles.")
     async def list_fonts(self, interaction: discord.Interaction):
         style_text = "\n".join(f"`{style}`" for style in ALL_STYLE_NAMES)
@@ -245,7 +355,7 @@ class Fonts(commands.Cog):
             name="How to use",
             value=(
                 "`/font preview style:gothic text:Hello world`\n"
-                "`/font say style:vaporwave text:Hello world`"
+                "`/font say style:cenzha text:Dei Talvyrvei`"
             ),
             inline=False,
         )
@@ -333,6 +443,13 @@ class Fonts(commands.Cog):
                 converted,
                 allowed_mentions=discord.AllowedMentions.none(),
             )
+
+        await self.send_font_log(
+            interaction=interaction,
+            style=style,
+            original_text=text,
+            converted_text=converted,
+        )
 
 
 async def setup(bot: commands.Bot):
