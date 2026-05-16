@@ -42,7 +42,7 @@ async def fetch_text_channel(guild: discord.Guild, channel_id):
 
 class WelcomeGroup(app_commands.Group):
     def __init__(self, bot: commands.Bot):
-        super().__init__(name="welcome", description="Welcome, leave, and verification tools.")
+        super().__init__(name="welcome", description="Welcome message tools.")
         self.bot = bot
 
     @app_commands.command(name="enable", description="Enable welcome messages.")
@@ -78,6 +78,44 @@ class WelcomeGroup(app_commands.Group):
 
         await interaction.response.send_message(
             embed=success_embed("Welcome message updated."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="set-channel", description="Set the welcome channel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def set_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        self.bot.db.update_setting(interaction.guild.id, "welcome_channel_id", channel.id)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Welcome channel set to {channel.mention}."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="clear-channel", description="Clear the welcome channel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def clear_channel(self, interaction: discord.Interaction):
+        self.bot.db.update_setting(interaction.guild.id, "welcome_channel_id", None)
+
+        await interaction.response.send_message(
+            embed=success_embed("Welcome channel cleared."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="show-channel", description="Show the current welcome channel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def show_channel(self, interaction: discord.Interaction):
+        channel_id = self.bot.db.get_setting(interaction.guild.id, "welcome_channel_id")
+        channel = await fetch_text_channel(interaction.guild, channel_id)
+
+        if not channel:
+            await interaction.response.send_message(
+                embed=info_embed("Welcome Channel", "No welcome channel is configured."),
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            embed=info_embed("Welcome Channel", f"Welcome messages are currently sent to {channel.mention}."),
             ephemeral=True,
         )
 
@@ -131,15 +169,53 @@ class LeaveGroup(app_commands.Group):
             ephemeral=True,
         )
 
+    @app_commands.command(name="set-channel", description="Set the leave channel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def set_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        self.bot.db.update_setting(interaction.guild.id, "leave_channel_id", channel.id)
 
-class BanLogGroup(app_commands.Group):
+        await interaction.response.send_message(
+            embed=success_embed(f"Leave channel set to {channel.mention}."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="clear-channel", description="Clear the leave channel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def clear_channel(self, interaction: discord.Interaction):
+        self.bot.db.update_setting(interaction.guild.id, "leave_channel_id", None)
+
+        await interaction.response.send_message(
+            embed=success_embed("Leave channel cleared."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="show-channel", description="Show the current leave channel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def show_channel(self, interaction: discord.Interaction):
+        channel_id = self.bot.db.get_setting(interaction.guild.id, "leave_channel_id")
+        channel = await fetch_text_channel(interaction.guild, channel_id)
+
+        if not channel:
+            await interaction.response.send_message(
+                embed=info_embed("Leave Channel", "No leave channel is configured."),
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            embed=info_embed("Leave Channel", f"Leave messages are currently sent to {channel.mention}."),
+            ephemeral=True,
+        )
+
+
+class BanGroup(app_commands.Group):
     def __init__(self, bot: commands.Bot):
-        super().__init__(name="ban-log", description="Ban log channel tools.")
+        super().__init__(name="ban", description="Ban logging tools.")
         self.bot = bot
 
-    @app_commands.command(name="channel", description="Set the ban log channel.")
+    @app_commands.command(name="set-channel", description="Set the ban log channel.")
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+    async def set_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
         self.bot.db.update_setting(interaction.guild.id, "ban_log_channel_id", channel.id)
 
         await interaction.response.send_message(
@@ -147,9 +223,9 @@ class BanLogGroup(app_commands.Group):
             ephemeral=True,
         )
 
-    @app_commands.command(name="clear", description="Clear the ban log channel.")
+    @app_commands.command(name="clear-channel", description="Clear the ban log channel.")
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def clear(self, interaction: discord.Interaction):
+    async def clear_channel(self, interaction: discord.Interaction):
         self.bot.db.update_setting(interaction.guild.id, "ban_log_channel_id", None)
 
         await interaction.response.send_message(
@@ -159,9 +235,9 @@ class BanLogGroup(app_commands.Group):
             ephemeral=True,
         )
 
-    @app_commands.command(name="show", description="Show the current ban log channel.")
+    @app_commands.command(name="show-channel", description="Show the current ban log channel.")
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def show(self, interaction: discord.Interaction):
+    async def show_channel(self, interaction: discord.Interaction):
         channel_id = self.bot.db.get_setting(interaction.guild.id, "ban_log_channel_id")
         channel = await fetch_text_channel(interaction.guild, channel_id)
 
@@ -297,6 +373,43 @@ class TestGroup(app_commands.Group):
             ephemeral=True,
         )
 
+    @app_commands.command(name="verification", description="Test the verification panel in the verification channel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def verification(self, interaction: discord.Interaction):
+        guild_data = self.bot.db.get_guild(interaction.guild.id)
+        channel_id = guild_data["settings"].get("verification_channel_id")
+        channel = await fetch_text_channel(interaction.guild, channel_id)
+
+        if not channel:
+            await interaction.response.send_message(
+                embed=error_embed("No valid verification channel is configured."),
+                ephemeral=True,
+            )
+            return
+
+        message = guild_data["verification"]["message"]
+        embed = info_embed("Verification", message)
+
+        try:
+            await channel.send(embed=embed, view=VerifyButton(self.bot))
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                embed=error_embed("I do not have permission to send in the verification channel."),
+                ephemeral=True,
+            )
+            return
+        except discord.HTTPException as error:
+            await interaction.response.send_message(
+                embed=error_embed(f"Discord rejected the test verification panel: `{error}`"),
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Test verification panel sent in {channel.mention}."),
+            ephemeral=True,
+        )
+
 
 class VerifyButton(discord.ui.View):
     def __init__(self, bot: commands.Bot):
@@ -317,7 +430,21 @@ class VerifyButton(discord.ui.View):
             await interaction.response.send_message("The verified role no longer exists.", ephemeral=True)
             return
 
-        await interaction.user.add_roles(role, reason="Centari verification")
+        try:
+            await interaction.user.add_roles(role, reason="Centari verification")
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                "I do not have permission to give that role.",
+                ephemeral=True,
+            )
+            return
+        except discord.HTTPException:
+            await interaction.response.send_message(
+                "Discord rejected the role update.",
+                ephemeral=True,
+            )
+            return
+
         await interaction.response.send_message("You are verified!", ephemeral=True)
 
 
@@ -332,7 +459,32 @@ class VerificationGroup(app_commands.Group):
         guild_data = self.bot.db.get_guild(interaction.guild.id)
         message = guild_data["verification"]["message"]
 
+        channel_id = guild_data["settings"].get("verification_channel_id")
+        channel = await fetch_text_channel(interaction.guild, channel_id)
+
         embed = info_embed("Verification", message)
+
+        if channel:
+            try:
+                await channel.send(embed=embed, view=VerifyButton(self.bot))
+            except discord.Forbidden:
+                await interaction.response.send_message(
+                    embed=error_embed("I do not have permission to send in the verification channel."),
+                    ephemeral=True,
+                )
+                return
+            except discord.HTTPException as error:
+                await interaction.response.send_message(
+                    embed=error_embed(f"Discord rejected the verification panel: `{error}`"),
+                    ephemeral=True,
+                )
+                return
+
+            await interaction.response.send_message(
+                embed=success_embed(f"Verification panel sent in {channel.mention}."),
+                ephemeral=True,
+            )
+            return
 
         await interaction.response.send_message(embed=embed, view=VerifyButton(self.bot))
 
@@ -348,13 +500,113 @@ class VerificationGroup(app_commands.Group):
             ephemeral=True,
         )
 
+    @app_commands.command(name="set-channel", description="Set the verification channel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def set_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        self.bot.db.update_setting(interaction.guild.id, "verification_channel_id", channel.id)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Verification channel set to {channel.mention}."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="clear-channel", description="Clear the verification channel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def clear_channel(self, interaction: discord.Interaction):
+        self.bot.db.update_setting(interaction.guild.id, "verification_channel_id", None)
+
+        await interaction.response.send_message(
+            embed=success_embed("Verification channel cleared. `/verification panel` will send in the current channel."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="show-channel", description="Show the current verification channel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def show_channel(self, interaction: discord.Interaction):
+        channel_id = self.bot.db.get_setting(interaction.guild.id, "verification_channel_id")
+        channel = await fetch_text_channel(interaction.guild, channel_id)
+
+        if not channel:
+            await interaction.response.send_message(
+                embed=info_embed("Verification Channel", "No verification channel is configured."),
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            embed=info_embed("Verification Channel", f"Verification panels are currently sent to {channel.mention}."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="set-role", description="Set the verified role.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def set_role(self, interaction: discord.Interaction, role: discord.Role):
+        me = interaction.guild.me
+
+        if role >= interaction.user.top_role and interaction.guild.owner_id != interaction.user.id:
+            await interaction.response.send_message(
+                embed=error_embed("You cannot configure a verified role equal to or higher than your highest role."),
+                ephemeral=True,
+            )
+            return
+
+        if me and role >= me.top_role:
+            await interaction.response.send_message(
+                embed=error_embed("I cannot give that role because it is equal to or higher than my highest role."),
+                ephemeral=True,
+            )
+            return
+
+        self.bot.db.update_setting(interaction.guild.id, "verified_role_id", role.id)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Verified role set to {role.mention}."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="clear-role", description="Clear the verified role.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def clear_role(self, interaction: discord.Interaction):
+        self.bot.db.update_setting(interaction.guild.id, "verified_role_id", None)
+
+        await interaction.response.send_message(
+            embed=success_embed("Verified role cleared."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="show-role", description="Show the current verified role.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def show_role(self, interaction: discord.Interaction):
+        role_id = self.bot.db.get_setting(interaction.guild.id, "verified_role_id")
+
+        if not role_id:
+            await interaction.response.send_message(
+                embed=info_embed("Verified Role", "No verified role is configured."),
+                ephemeral=True,
+            )
+            return
+
+        role = interaction.guild.get_role(int(role_id))
+
+        if not role:
+            await interaction.response.send_message(
+                embed=info_embed("Verified Role", f"The configured role no longer exists: `{role_id}`"),
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            embed=info_embed("Verified Role", f"Verified users currently receive {role.mention}."),
+            ephemeral=True,
+        )
+
 
 class Welcome(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.bot.tree.add_command(WelcomeGroup(bot))
         self.bot.tree.add_command(LeaveGroup(bot))
-        self.bot.tree.add_command(BanLogGroup(bot))
+        self.bot.tree.add_command(BanGroup(bot))
         self.bot.tree.add_command(TestGroup(bot))
         self.bot.tree.add_command(VerificationGroup(bot))
 
