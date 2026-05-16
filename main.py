@@ -38,6 +38,7 @@ logger = logging.getLogger("centari")
 EXTENSIONS = [
     "cogs.admin",
     "cogs.automod",
+    "cogs.autoroles",
     "cogs.community",
     "cogs.confessions",
     "cogs.custom_embeds",
