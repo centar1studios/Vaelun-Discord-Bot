@@ -424,7 +424,10 @@ class VerifyButton(discord.ui.View):
             await interaction.response.send_message("No verified role has been configured.", ephemeral=True)
             return
 
-        role = interaction.guild.get_role(int(role_id))
+        try:
+            role = interaction.guild.get_role(int(role_id))
+        except (ValueError, TypeError):
+            role = None
 
         if not role:
             await interaction.response.send_message("The verified role no longer exists.", ephemeral=True)
@@ -633,7 +636,11 @@ class Welcome(commands.Cog):
         autorole_id = guild_data["settings"].get("autorole_id")
 
         if autorole_id:
-            role = member.guild.get_role(int(autorole_id))
+            try:
+                role = member.guild.get_role(int(autorole_id))
+            except (ValueError, TypeError):
+                role = None
+
             if role:
                 try:
                     await member.add_roles(role, reason="Centari autorole")
@@ -651,7 +658,10 @@ class Welcome(commands.Cog):
 
         text = format_welcome_message(guild_data["welcome"]["message"], member)
 
-        await channel.send(text)
+        try:
+            await channel.send(text)
+        except (discord.Forbidden, discord.HTTPException):
+            pass
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
@@ -675,7 +685,10 @@ class Welcome(commands.Cog):
 
         text = format_leave_message(guild_data["leave"]["message"], member)
 
-        await channel.send(text)
+        try:
+            await channel.send(text)
+        except (discord.Forbidden, discord.HTTPException):
+            pass
 
     @commands.Cog.listener()
     async def on_member_ban(self, guild: discord.Guild, user: discord.User):
@@ -687,9 +700,12 @@ class Welcome(commands.Cog):
         channel = await fetch_text_channel(guild, channel_id)
 
         if channel:
-            await channel.send(
-                embed=info_embed("Member Banned", f"{user} was banned from the server.")
-            )
+            try:
+                await channel.send(
+                    embed=info_embed("Member Banned", f"{user} was banned from the server.")
+                )
+            except (discord.Forbidden, discord.HTTPException):
+                pass
 
 
 async def setup(bot: commands.Bot):
