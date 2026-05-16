@@ -10,10 +10,89 @@ from utils.embeds import persona_embed, success_embed, error_embed
 HEX_RE = re.compile(r"^#?[0-9A-Fa-f]{6}$")
 
 
+async def fetch_text_channel(guild: discord.Guild, channel_id):
+    if not channel_id:
+        return None
+
+    try:
+        channel = guild.get_channel(int(channel_id))
+
+        if channel is None:
+            channel = await guild.fetch_channel(int(channel_id))
+
+        if isinstance(channel, discord.TextChannel):
+            return channel
+
+        return None
+
+    except (discord.Forbidden, discord.NotFound, discord.HTTPException, ValueError, TypeError):
+        return None
+
+
 class PersonaGroup(app_commands.Group):
     def __init__(self, bot: commands.Bot):
         super().__init__(name="persona", description="Customize this server's Persona.")
         self.bot = bot
+
+    async def send_persona_speak_log(
+        self,
+        interaction: discord.Interaction,
+        channel: discord.TextChannel,
+        message: str,
+        title: str | None = None,
+    ):
+        log_channel_id = self.bot.db.get_setting(interaction.guild.id, "log_channel_id")
+        log_channel = await fetch_text_channel(interaction.guild, log_channel_id)
+
+        if not log_channel:
+            return
+
+        embed = discord.Embed(
+            title="Persona Speak Used",
+            color=discord.Color.purple(),
+            timestamp=discord.utils.utcnow(),
+        )
+
+        embed.add_field(
+            name="Used By",
+            value=f"{interaction.user.mention}\n`{interaction.user.id}`",
+            inline=True,
+        )
+        embed.add_field(
+            name="Sent To",
+            value=channel.mention,
+            inline=True,
+        )
+
+        if title:
+            safe_title = title
+
+            if len(safe_title) > 250:
+                safe_title = safe_title[:250] + "..."
+
+            embed.add_field(
+                name="Title",
+                value=safe_title,
+                inline=False,
+            )
+
+        safe_message = message
+
+        if len(safe_message) > 1000:
+            safe_message = safe_message[:1000] + "\n..."
+
+        embed.add_field(
+            name="Message",
+            value=safe_message or "No message.",
+            inline=False,
+        )
+
+        embed.set_footer(text="Centari Studios Persona Logging")
+
+        try:
+            await log_channel.send(embed=embed)
+        except (discord.Forbidden, discord.HTTPException):
+            return
 
     @app_commands.command(name="view", description="View this server's Persona.")
     async def view(self, interaction: discord.Interaction):
@@ -29,6 +108,61 @@ class PersonaGroup(app_commands.Group):
 
         await interaction.response.send_message(
             embed=persona_embed(persona, "Server Persona", description)
+        )
+
+    @app_commands.command(name="speak", description="Send a message as this server's Persona.")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def speak(
+        self,
+        interaction: discord.Interaction,
+        channel: discord.TextChannel,
+        message: str,
+        title: str | None = None,
+    ):
+        if len(message) > 4000:
+            await interaction.response.send_message(
+                embed=error_embed("Persona message must be 4000 characters or less."),
+                ephemeral=True,
+            )
+            return
+
+        if title and len(title) > 256:
+            await interaction.response.send_message(
+                embed=error_embed("Persona title must be 256 characters or less."),
+                ephemeral=True,
+            )
+            return
+
+        persona = self.bot.db.get_persona(interaction.guild.id)
+
+        embed_title = title or persona.get("name", "Server Persona")
+        embed = persona_embed(persona, embed_title, message)
+
+        try:
+            await channel.send(embed=embed)
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                embed=error_embed("I do not have permission to send messages in that channel."),
+                ephemeral=True,
+            )
+            return
+        except discord.HTTPException as error:
+            await interaction.response.send_message(
+                embed=error_embed(f"Discord rejected the persona message: `{error}`"),
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Persona message sent in {channel.mention}."),
+            ephemeral=True,
+        )
+
+        await self.send_persona_speak_log(
+            interaction=interaction,
+            channel=channel,
+            message=message,
+            title=title,
         )
 
     @app_commands.command(name="name", description="Set Persona name.")
