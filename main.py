@@ -41,6 +41,7 @@ EXTENSIONS = [
     "cogs.autoroles",
     "cogs.community",
     "cogs.confessions",
+    "cogs.counting",
     "cogs.custom_embeds",
     "cogs.fonts",
     "cogs.help",
