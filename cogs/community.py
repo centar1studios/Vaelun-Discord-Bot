@@ -161,6 +161,26 @@ class LevelGroup(app_commands.Group):
             embed=info_embed("Rank", f"{member.mention}\n**Level:** {level['level']}\n**XP:** {level['xp']}")
         )
 
+    @app_commands.command(name="config-channel", description="Set the level-up announcement channel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def config_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        self.bot.db.update_setting(interaction.guild.id, "level_up_channel_id", channel.id)
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Level-up announcements will now be sent in {channel.mention}."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="clear-channel", description="Clear the level-up announcement channel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def clear_channel(self, interaction: discord.Interaction):
+        self.bot.db.update_setting(interaction.guild.id, "level_up_channel_id", None)
+
+        await interaction.response.send_message(
+            embed=success_embed("Level-up announcements will now post in the channel where the user leveled up."),
+            ephemeral=True,
+        )
+
     @app_commands.command(name="add-xp", description="Add XP to a member.")
     @app_commands.checks.has_permissions(moderate_members=True)
     async def add_xp(
@@ -612,7 +632,7 @@ class StudyGroup(app_commands.Group):
     @app_commands.command(name="deadline", description="Save a deadline reminder note.")
     async def deadline(self, interaction: discord.Interaction, title: str, due: str):
         await interaction.response.send_message(
-            embed=success_embed(f"Deadline saved: **{title}** due **{due}."),
+            embed=success_embed(f"Deadline saved: **{title}** due **{due}**."),
             ephemeral=True,
         )
 
@@ -632,6 +652,32 @@ class Community(commands.Cog):
         self.bot.tree.add_command(StudyGroup(bot))
 
         self.level_cooldowns = {}
+
+    async def _send_level_up_message(self, message: discord.Message, level_data: dict):
+        channel_id = self.bot.db.get_setting(message.guild.id, "level_up_channel_id")
+        target_channel = None
+
+        if channel_id:
+            try:
+                target_channel = message.guild.get_channel(int(channel_id))
+
+                if target_channel is None:
+                    target_channel = await message.guild.fetch_channel(int(channel_id))
+
+            except (discord.Forbidden, discord.NotFound, discord.HTTPException, ValueError):
+                target_channel = None
+
+        if target_channel is None:
+            target_channel = message.channel
+
+        try:
+            await target_channel.send(
+                f"{message.author.mention} leveled up to **Level {level_data['level']}**!"
+            )
+        except discord.Forbidden:
+            pass
+        except discord.HTTPException:
+            pass
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -657,12 +703,7 @@ class Community(commands.Cog):
         level_data, leveled_up = self.bot.db.add_xp(message.guild.id, message.author.id, amount)
 
         if leveled_up:
-            try:
-                await message.channel.send(
-                    f"{message.author.mention} leveled up to **Level {level_data['level']}**!"
-                )
-            except discord.Forbidden:
-                pass
+            await self._send_level_up_message(message, level_data)
 
 
 async def setup(bot: commands.Bot):
