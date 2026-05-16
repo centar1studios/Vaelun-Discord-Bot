@@ -12,6 +12,7 @@ logger = logging.getLogger("centari.starboard")
 
 DEFAULT_EMOJI = "⭐"
 DEFAULT_THRESHOLD = 3
+
 KEY_RE = re.compile(r"^[a-z0-9_-]{2,32}$")
 CUSTOM_EMOJI_RE = re.compile(r"^<a?:([A-Za-z0-9_]+):([0-9]+)>$")
 MESSAGE_LINK_RE = re.compile(
@@ -39,6 +40,53 @@ async def fetch_text_channel(guild: discord.Guild, channel_id):
         return None
 
 
+async def fetch_source_channel(guild: discord.Guild, channel_id):
+    """
+    Source can be:
+    - normal text channel
+    - thread
+    - forum post, which Discord treats as a thread
+    """
+    if not channel_id:
+        return None
+
+    try:
+        channel = guild.get_channel(int(channel_id))
+
+        if channel is None:
+            channel = await guild.fetch_channel(int(channel_id))
+
+        if isinstance(channel, (discord.TextChannel, discord.Thread)):
+            return channel
+
+        return None
+
+    except (discord.Forbidden, discord.NotFound, discord.HTTPException, ValueError, TypeError):
+        return None
+
+
+def bot_can_read_source(channel, bot_member: discord.Member) -> bool:
+    if isinstance(channel, discord.Thread):
+        parent = channel.parent
+
+        if not parent:
+            return False
+
+        parent_permissions = parent.permissions_for(bot_member)
+        thread_permissions = channel.permissions_for(bot_member)
+
+        return (
+            parent_permissions.view_channel
+            and parent_permissions.read_message_history
+            and thread_permissions.view_channel
+            and thread_permissions.read_message_history
+        )
+
+    permissions = channel.permissions_for(bot_member)
+
+    return permissions.view_channel and permissions.read_message_history
+
+
 def clean_key(key: str) -> str:
     return key.lower().strip()
 
@@ -51,6 +99,11 @@ def clean_standard_emoji(value: str) -> str:
 
 
 def normalize_config_emoji(raw_emoji: str | None) -> tuple[str, str]:
+    """
+    Returns:
+    emoji_key: stable value used for matching reactions
+    emoji_display: value used in messages
+    """
     if not raw_emoji:
         return DEFAULT_EMOJI, DEFAULT_EMOJI
 
@@ -99,7 +152,38 @@ def parse_message_link(link: str) -> tuple[int, int, int] | None:
     )
 
 
+def get_channel_label(channel) -> str:
+    if isinstance(channel, discord.Thread):
+        parent = channel.parent
+
+        if parent:
+            return f"{channel.mention} in {parent.mention}"
+
+        return channel.mention
+
+    return channel.mention
+
+
 def get_starboards_config(guild_data: dict) -> dict:
+    """
+    New shape:
+
+    guild_data["starboards"] = {
+        "main": {
+            "key": "main",
+            "enabled": True,
+            "channel_id": 123,
+            "threshold": 3,
+            "emoji_key": "⭐",
+            "emoji_display": "⭐",
+            "messages": {
+                "original_message_id": "starboard_message_id"
+            }
+        }
+    }
+
+    Also migrates the old single-starboard shape if it exists.
+    """
     starboards = guild_data.get("starboards")
 
     if not isinstance(starboards, dict):
@@ -180,9 +264,16 @@ def build_starboard_embed(
 
     embed.add_field(
         name="Channel",
-        value=message.channel.mention,
+        value=get_channel_label(message.channel),
         inline=True,
     )
+
+    if isinstance(message.channel, discord.Thread) and message.channel.parent:
+        embed.add_field(
+            name="Parent Channel",
+            value=message.channel.parent.mention,
+            inline=True,
+        )
 
     if message.attachments:
         first_attachment = message.attachments[0]
@@ -220,12 +311,21 @@ class StarboardGroup(app_commands.Group):
 
         if not KEY_RE.match(key):
             await interaction.response.send_message(
-                embed=error_embed("Starboard key must be 2-32 characters and use only lowercase letters, numbers, `_`, or `-`."),
+                embed=error_embed(
+                    "Starboard key must be 2-32 characters and use only lowercase letters, numbers, `_`, or `-`."
+                ),
                 ephemeral=True,
             )
             return
 
         permissions = channel.permissions_for(interaction.guild.me)
+
+        if not permissions.view_channel:
+            await interaction.response.send_message(
+                embed=error_embed("I do not have permission to view that channel."),
+                ephemeral=True,
+            )
+            return
 
         if not permissions.send_messages:
             await interaction.response.send_message(
@@ -290,6 +390,13 @@ class StarboardGroup(app_commands.Group):
     ):
         key = clean_key(key)
         permissions = channel.permissions_for(interaction.guild.me)
+
+        if not permissions.view_channel:
+            await interaction.response.send_message(
+                embed=error_embed("I do not have permission to view that channel."),
+                ephemeral=True,
+            )
+            return
 
         if not permissions.send_messages:
             await interaction.response.send_message(
@@ -394,7 +501,10 @@ class StarboardGroup(app_commands.Group):
         self.bot.db.update_guild(interaction.guild.id, guild_data)
 
         await interaction.response.send_message(
-            embed=success_embed(f"Starboard `{key}` emoji set to {emoji_display}.\nEmoji key: `{emoji_key}`"),
+            embed=success_embed(
+                f"Starboard `{key}` emoji set to {emoji_display}.\n"
+                f"Emoji key: `{emoji_key}`"
+            ),
             ephemeral=True,
         )
 
@@ -600,12 +710,19 @@ class StarboardGroup(app_commands.Group):
             )
             return
 
-        source_channel = await fetch_text_channel(interaction.guild, channel_id)
+        source_channel = await fetch_source_channel(interaction.guild, channel_id)
         starboard_channel = await fetch_text_channel(interaction.guild, board.get("channel_id"))
 
         if not source_channel:
             await interaction.response.send_message(
-                embed=error_embed("I could not access the source channel."),
+                embed=error_embed("I could not access the source channel or thread."),
+                ephemeral=True,
+            )
+            return
+
+        if not bot_can_read_source(source_channel, interaction.guild.me):
+            await interaction.response.send_message(
+                embed=error_embed("I can access that source, but I do not have enough permission to read its history."),
                 ephemeral=True,
             )
             return
@@ -659,7 +776,7 @@ class StarboardGroup(app_commands.Group):
 
         try:
             await starboard_channel.send(
-                content=f"{emoji_display} **TEST** in {message.channel.mention}",
+                content=f"{emoji_display} **TEST** in {get_channel_label(message.channel)}",
                 embed=embed,
                 allowed_mentions=discord.AllowedMentions.none(),
             )
@@ -764,10 +881,14 @@ class Starboard(commands.Cog):
             logger.info("Starboard skipped: no enabled board matched emoji key=%s", reacted_emoji_key)
             return
 
-        source_channel = await fetch_text_channel(guild, payload.channel_id)
+        source_channel = await fetch_source_channel(guild, payload.channel_id)
 
         if not source_channel:
-            logger.info("Starboard skipped: source channel not found or inaccessible")
+            logger.info("Starboard skipped: source channel/thread not found or inaccessible")
+            return
+
+        if not bot_can_read_source(source_channel, guild.me):
+            logger.info("Starboard skipped: missing source read permissions")
             return
 
         try:
@@ -800,6 +921,10 @@ class Starboard(commands.Cog):
                 continue
 
             permissions = starboard_channel.permissions_for(guild.me)
+
+            if not permissions.view_channel:
+                logger.info("Starboard `%s` skipped: missing View Channel", key)
+                continue
 
             if not permissions.send_messages:
                 logger.info("Starboard `%s` skipped: missing Send Messages", key)
@@ -862,7 +987,7 @@ class Starboard(commands.Cog):
                 emoji_display=emoji_display,
             )
 
-            content = f"{emoji_display} **{reaction_count}** in {message.channel.mention}"
+            content = f"{emoji_display} **{reaction_count}** in {get_channel_label(message.channel)}"
 
             if existing_starboard_id:
                 try:
