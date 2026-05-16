@@ -1,3 +1,4 @@
+import logging
 import re
 
 import discord
@@ -7,10 +8,16 @@ from discord.ext import commands
 from utils.embeds import success_embed, error_embed, info_embed
 
 
+logger = logging.getLogger("centari.starboard")
+
 DEFAULT_EMOJI = "⭐"
 DEFAULT_THRESHOLD = 3
 KEY_RE = re.compile(r"^[a-z0-9_-]{2,32}$")
 CUSTOM_EMOJI_RE = re.compile(r"^<a?:([A-Za-z0-9_]+):([0-9]+)>$")
+MESSAGE_LINK_RE = re.compile(
+    r"https?://(?:canary\.|ptb\.)?discord(?:app)?\.com/channels/"
+    r"(?P<guild_id>\d+)/(?P<channel_id>\d+)/(?P<message_id>\d+)"
+)
 
 
 async def fetch_text_channel(guild: discord.Guild, channel_id):
@@ -36,31 +43,33 @@ def clean_key(key: str) -> str:
     return key.lower().strip()
 
 
+def clean_standard_emoji(value: str) -> str:
+    if not value:
+        return value
+
+    return value.strip().replace("\ufe0f", "")
+
+
 def normalize_config_emoji(raw_emoji: str | None) -> tuple[str, str]:
-    """
-    Returns:
-    emoji_key: stable value used for matching reactions
-    emoji_display: value used in messages
-    """
     if not raw_emoji:
         return DEFAULT_EMOJI, DEFAULT_EMOJI
 
     raw_emoji = raw_emoji.strip()
-
     custom_match = CUSTOM_EMOJI_RE.match(raw_emoji)
 
     if custom_match:
         emoji_id = custom_match.group(2)
         return emoji_id, raw_emoji
 
-    return raw_emoji, raw_emoji
+    cleaned = clean_standard_emoji(raw_emoji)
+    return cleaned, raw_emoji
 
 
 def payload_emoji_key(payload_emoji: discord.PartialEmoji) -> str:
     if payload_emoji.id:
         return str(payload_emoji.id)
 
-    return str(payload_emoji)
+    return clean_standard_emoji(str(payload_emoji))
 
 
 def reaction_emoji_key(reaction: discord.Reaction) -> str:
@@ -69,33 +78,28 @@ def reaction_emoji_key(reaction: discord.Reaction) -> str:
     if isinstance(emoji, discord.PartialEmoji):
         if emoji.id:
             return str(emoji.id)
-        return str(emoji)
+        return clean_standard_emoji(str(emoji))
 
     if isinstance(emoji, discord.Emoji):
         return str(emoji.id)
 
-    return str(emoji)
+    return clean_standard_emoji(str(emoji))
+
+
+def parse_message_link(link: str) -> tuple[int, int, int] | None:
+    match = MESSAGE_LINK_RE.match(link.strip())
+
+    if not match:
+        return None
+
+    return (
+        int(match.group("guild_id")),
+        int(match.group("channel_id")),
+        int(match.group("message_id")),
+    )
 
 
 def get_starboards_config(guild_data: dict) -> dict:
-    """
-    New shape:
-    guild_data["starboards"] = {
-        "main": {
-            "key": "main",
-            "enabled": True,
-            "channel_id": 123,
-            "threshold": 3,
-            "emoji_key": "⭐",
-            "emoji_display": "⭐",
-            "messages": {
-                "original_message_id": "starboard_message_id"
-            }
-        }
-    }
-
-    Also migrates the old single-starboard shape if it exists.
-    """
     starboards = guild_data.get("starboards")
 
     if not isinstance(starboards, dict):
@@ -105,9 +109,6 @@ def get_starboards_config(guild_data: dict) -> dict:
     old_starboard = guild_data.get("starboard")
 
     if isinstance(old_starboard, dict) and "main" not in starboards:
-        old_channel_id = old_starboard.get("channel_id")
-        old_threshold = old_starboard.get("threshold", DEFAULT_THRESHOLD)
-        old_enabled = old_starboard.get("enabled", False)
         old_messages = old_starboard.get("messages", {})
 
         if not isinstance(old_messages, dict):
@@ -115,9 +116,9 @@ def get_starboards_config(guild_data: dict) -> dict:
 
         starboards["main"] = {
             "key": "main",
-            "enabled": old_enabled,
-            "channel_id": old_channel_id,
-            "threshold": old_threshold,
+            "enabled": old_starboard.get("enabled", False),
+            "channel_id": old_starboard.get("channel_id"),
+            "threshold": old_starboard.get("threshold", DEFAULT_THRESHOLD),
             "emoji_key": DEFAULT_EMOJI,
             "emoji_display": DEFAULT_EMOJI,
             "messages": old_messages,
@@ -136,6 +137,8 @@ def get_starboards_config(guild_data: dict) -> dict:
         board.setdefault("emoji_display", DEFAULT_EMOJI)
         board.setdefault("messages", {})
 
+        board["emoji_key"] = clean_standard_emoji(str(board.get("emoji_key", DEFAULT_EMOJI)))
+
         if not isinstance(board["messages"], dict):
             board["messages"] = {}
 
@@ -144,7 +147,7 @@ def get_starboards_config(guild_data: dict) -> dict:
 
 def build_starboard_embed(
     message: discord.Message,
-    star_count: int,
+    reaction_count: int,
     emoji_display: str,
 ) -> discord.Embed:
     description = message.content or "*No text content.*"
@@ -158,11 +161,9 @@ def build_starboard_embed(
         timestamp=message.created_at,
     )
 
-    author_icon = message.author.display_avatar.url if message.author.display_avatar else None
-
     embed.set_author(
         name=str(message.author),
-        icon_url=author_icon,
+        icon_url=message.author.display_avatar.url,
     )
 
     embed.add_field(
@@ -173,7 +174,7 @@ def build_starboard_embed(
 
     embed.add_field(
         name="Reactions",
-        value=f"{emoji_display} **{star_count}**",
+        value=f"{emoji_display} **{reaction_count}**",
         inline=True,
     )
 
@@ -273,6 +274,7 @@ class StarboardGroup(app_commands.Group):
                 f"Starboard `{key}` created.\n"
                 f"Channel: {channel.mention}\n"
                 f"Emoji: {emoji_display}\n"
+                f"Emoji key: `{emoji_key}`\n"
                 f"Threshold: **{threshold}**"
             ),
             ephemeral=True,
@@ -392,7 +394,7 @@ class StarboardGroup(app_commands.Group):
         self.bot.db.update_guild(interaction.guild.id, guild_data)
 
         await interaction.response.send_message(
-            embed=success_embed(f"Starboard `{key}` emoji set to {emoji_display}."),
+            embed=success_embed(f"Starboard `{key}` emoji set to {emoji_display}.\nEmoji key: `{emoji_key}`"),
             ephemeral=True,
         )
 
@@ -502,6 +504,7 @@ class StarboardGroup(app_commands.Group):
             channel_text = channel.mention if channel else "Not configured"
             status = "Enabled" if board.get("enabled", False) else "Disabled"
             emoji_display = board.get("emoji_display", DEFAULT_EMOJI)
+            emoji_key = board.get("emoji_key", DEFAULT_EMOJI)
             threshold = board.get("threshold", DEFAULT_THRESHOLD)
             count = len(board.get("messages", {}))
 
@@ -510,6 +513,7 @@ class StarboardGroup(app_commands.Group):
                 f"Status: `{status}`\n"
                 f"Channel: {channel_text}\n"
                 f"Emoji: {emoji_display}\n"
+                f"Emoji key: `{emoji_key}`\n"
                 f"Threshold: `{threshold}`\n"
                 f"Starred Messages: `{count}`"
             )
@@ -558,6 +562,125 @@ class StarboardGroup(app_commands.Group):
             ephemeral=True,
         )
 
+    @app_commands.command(name="test-message", description="Force-test a message into a starboard using a message link.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def test_message(
+        self,
+        interaction: discord.Interaction,
+        key: str,
+        message_link: str,
+    ):
+        key = clean_key(key)
+        parsed = parse_message_link(message_link)
+
+        if not parsed:
+            await interaction.response.send_message(
+                embed=error_embed("That does not look like a valid Discord message link."),
+                ephemeral=True,
+            )
+            return
+
+        guild_id, channel_id, message_id = parsed
+
+        if guild_id != interaction.guild.id:
+            await interaction.response.send_message(
+                embed=error_embed("That message link is not from this server."),
+                ephemeral=True,
+            )
+            return
+
+        guild_data = self.bot.db.get_guild(interaction.guild.id)
+        starboards = get_starboards_config(guild_data)
+        board = starboards.get(key)
+
+        if not board:
+            await interaction.response.send_message(
+                embed=error_embed("I could not find a starboard with that key."),
+                ephemeral=True,
+            )
+            return
+
+        source_channel = await fetch_text_channel(interaction.guild, channel_id)
+        starboard_channel = await fetch_text_channel(interaction.guild, board.get("channel_id"))
+
+        if not source_channel:
+            await interaction.response.send_message(
+                embed=error_embed("I could not access the source channel."),
+                ephemeral=True,
+            )
+            return
+
+        if not starboard_channel:
+            await interaction.response.send_message(
+                embed=error_embed("I could not access the starboard channel."),
+                ephemeral=True,
+            )
+            return
+
+        try:
+            message = await source_channel.fetch_message(message_id)
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                embed=error_embed("I do not have permission to read that message."),
+                ephemeral=True,
+            )
+            return
+        except discord.NotFound:
+            await interaction.response.send_message(
+                embed=error_embed("I could not find that message."),
+                ephemeral=True,
+            )
+            return
+        except discord.HTTPException as error:
+            await interaction.response.send_message(
+                embed=error_embed(f"Discord rejected the message lookup: `{error}`"),
+                ephemeral=True,
+            )
+            return
+
+        emoji_key = str(board.get("emoji_key", DEFAULT_EMOJI))
+        emoji_display = board.get("emoji_display", DEFAULT_EMOJI)
+
+        reaction_count = 0
+
+        for reaction in message.reactions:
+            if reaction_emoji_key(reaction) == emoji_key:
+                reaction_count = reaction.count
+                break
+
+        if reaction_count < 1:
+            reaction_count = 1
+
+        embed = build_starboard_embed(
+            message=message,
+            reaction_count=reaction_count,
+            emoji_display=emoji_display,
+        )
+
+        try:
+            await starboard_channel.send(
+                content=f"{emoji_display} **TEST** in {message.channel.mention}",
+                embed=embed,
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                embed=error_embed("I do not have permission to send in the starboard channel."),
+                ephemeral=True,
+            )
+            return
+        except discord.HTTPException as error:
+            await interaction.response.send_message(
+                embed=error_embed(f"Discord rejected the starboard test post: `{error}`"),
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            embed=success_embed(f"Test starboard post sent to {starboard_channel.mention}."),
+            ephemeral=True,
+        )
+
     @set_channel.autocomplete("key")
     @set_threshold.autocomplete("key")
     @set_emoji.autocomplete("key")
@@ -565,6 +688,7 @@ class StarboardGroup(app_commands.Group):
     @disable.autocomplete("key")
     @delete.autocomplete("key")
     @status.autocomplete("key")
+    @test_message.autocomplete("key")
     async def starboard_key_autocomplete(
         self,
         interaction: discord.Interaction,
@@ -608,15 +732,26 @@ class Starboard(commands.Cog):
         guild = self.bot.get_guild(payload.guild_id)
 
         if not guild:
+            logger.info("Starboard skipped: guild not found for payload guild_id=%s", payload.guild_id)
             return
 
         guild_data = self.bot.db.get_guild(guild.id)
         starboards = get_starboards_config(guild_data)
 
         if not starboards:
+            logger.info("Starboard skipped: no starboards configured in guild %s", guild.id)
             return
 
         reacted_emoji_key = payload_emoji_key(payload.emoji)
+
+        logger.info(
+            "Starboard reaction event: guild=%s channel=%s message=%s emoji=%s key=%s",
+            guild.id,
+            payload.channel_id,
+            payload.message_id,
+            str(payload.emoji),
+            reacted_emoji_key,
+        )
 
         matching_boards = [
             (key, board)
@@ -626,19 +761,29 @@ class Starboard(commands.Cog):
         ]
 
         if not matching_boards:
+            logger.info("Starboard skipped: no enabled board matched emoji key=%s", reacted_emoji_key)
             return
 
         source_channel = await fetch_text_channel(guild, payload.channel_id)
 
         if not source_channel:
+            logger.info("Starboard skipped: source channel not found or inaccessible")
             return
 
         try:
             message = await source_channel.fetch_message(payload.message_id)
-        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+        except discord.Forbidden:
+            logger.info("Starboard skipped: forbidden fetching source message")
+            return
+        except discord.NotFound:
+            logger.info("Starboard skipped: source message not found")
+            return
+        except discord.HTTPException as error:
+            logger.info("Starboard skipped: HTTP error fetching source message: %s", error)
             return
 
         if message.author.bot:
+            logger.info("Starboard skipped: source message is from a bot/webhook")
             return
 
         updated_any = False
@@ -647,9 +792,21 @@ class Starboard(commands.Cog):
             starboard_channel = await fetch_text_channel(guild, board.get("channel_id"))
 
             if not starboard_channel:
+                logger.info("Starboard `%s` skipped: starboard channel missing/inaccessible", key)
                 continue
 
             if payload.channel_id == starboard_channel.id:
+                logger.info("Starboard `%s` skipped: reaction happened inside starboard channel", key)
+                continue
+
+            permissions = starboard_channel.permissions_for(guild.me)
+
+            if not permissions.send_messages:
+                logger.info("Starboard `%s` skipped: missing Send Messages", key)
+                continue
+
+            if not permissions.embed_links:
+                logger.info("Starboard `%s` skipped: missing Embed Links", key)
                 continue
 
             emoji_key = str(board.get("emoji_key", DEFAULT_EMOJI))
@@ -659,9 +816,26 @@ class Starboard(commands.Cog):
             reaction_count = 0
 
             for reaction in message.reactions:
-                if reaction_emoji_key(reaction) == emoji_key:
+                current_key = reaction_emoji_key(reaction)
+
+                logger.info(
+                    "Starboard `%s`: reaction on message emoji=%s key=%s count=%s",
+                    key,
+                    str(reaction.emoji),
+                    current_key,
+                    reaction.count,
+                )
+
+                if current_key == emoji_key:
                     reaction_count = reaction.count
                     break
+
+            logger.info(
+                "Starboard `%s`: reaction_count=%s threshold=%s",
+                key,
+                reaction_count,
+                threshold,
+            )
 
             messages = board.setdefault("messages", {})
             message_key = str(message.id)
@@ -684,7 +858,7 @@ class Starboard(commands.Cog):
 
             embed = build_starboard_embed(
                 message=message,
-                star_count=reaction_count,
+                reaction_count=reaction_count,
                 emoji_display=emoji_display,
             )
 
@@ -698,6 +872,7 @@ class Starboard(commands.Cog):
                         embed=embed,
                         allowed_mentions=discord.AllowedMentions.none(),
                     )
+                    logger.info("Starboard `%s`: updated existing starboard post", key)
                     continue
                 except (discord.Forbidden, discord.NotFound, discord.HTTPException, ValueError, TypeError):
                     messages.pop(message_key, None)
@@ -708,13 +883,19 @@ class Starboard(commands.Cog):
                     embed=embed,
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
-            except (discord.Forbidden, discord.HTTPException):
+            except discord.Forbidden:
+                logger.info("Starboard `%s` skipped: forbidden sending starboard post", key)
+                continue
+            except discord.HTTPException as error:
+                logger.info("Starboard `%s` skipped: HTTP error sending post: %s", key, error)
                 continue
 
             messages[message_key] = sent.id
             board["messages"] = messages
             starboards[key] = board
             updated_any = True
+
+            logger.info("Starboard `%s`: sent new starboard post", key)
 
         if updated_any:
             guild_data["starboards"] = starboards
