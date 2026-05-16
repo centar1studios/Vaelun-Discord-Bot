@@ -119,7 +119,7 @@ class WelcomeGroup(app_commands.Group):
             ephemeral=True,
         )
 
-    @app_commands.command(name="test", description="Test the welcome message.")
+    @app_commands.command(name="test", description="Test the welcome message here.")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def test(self, interaction: discord.Interaction):
         guild_data = self.bot.db.get_guild(interaction.guild.id)
@@ -208,9 +208,9 @@ class LeaveGroup(app_commands.Group):
         )
 
 
-class BanGroup(app_commands.Group):
+class BanLogGroup(app_commands.Group):
     def __init__(self, bot: commands.Bot):
-        super().__init__(name="ban", description="Ban logging tools.")
+        super().__init__(name="ban-log", description="Ban log channel tools.")
         self.bot = bot
 
     @app_commands.command(name="set-channel", description="Set the ban log channel.")
@@ -586,7 +586,10 @@ class VerificationGroup(app_commands.Group):
             )
             return
 
-        role = interaction.guild.get_role(int(role_id))
+        try:
+            role = interaction.guild.get_role(int(role_id))
+        except (ValueError, TypeError):
+            role = None
 
         if not role:
             await interaction.response.send_message(
@@ -606,7 +609,7 @@ class Welcome(commands.Cog):
         self.bot = bot
         self.bot.tree.add_command(WelcomeGroup(bot))
         self.bot.tree.add_command(LeaveGroup(bot))
-        self.bot.tree.add_command(BanGroup(bot))
+        self.bot.tree.add_command(BanLogGroup(bot))
         self.bot.tree.add_command(TestGroup(bot))
         self.bot.tree.add_command(VerificationGroup(bot))
 
